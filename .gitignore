@@ -1,0 +1,12 @@
+# Python virtual environment
+.venv/
+venv/
+
+# Emacs temporary and backup files
+*~
+\#*\#
+.\#*
+
+# Other common Python artifacts
+__pycache__/
+*.py[cod]

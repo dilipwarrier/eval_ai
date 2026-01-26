@@ -1,0 +1,25 @@
+#+TITLE: Steps for running AI eval tests
+
+This directory has promptfoo-based tests for AI models.
+
+* Prerequisites
+
+Install node.js to get npm.
+
+#+begin_src
+  winget install OpenJS.NodeJS.LTS
+#+end_src
+
+Then, install promptfoo.
+
+#+begin_src
+  npm install -g promptfoo
+#+end_src
+
+* Running tests
+
+Run the tests as follows.
+
+#+begin_src
+  promptfoo eval
+#+end_src
