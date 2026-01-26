@@ -16,6 +16,13 @@ Then, install promptfoo.
   npm install -g promptfoo
 #+end_src
 
+* Models
+
+For testing OpenAI LLMs, set the OPENAI_API_KEY variable.
+
+For testing Ollama-based LLMs, install Ollama, download an LLM, and run the
+Ollama server.
+
 * Running tests
 
 Run the tests as follows.
