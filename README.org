@@ -1,6 +1,8 @@
 #+TITLE: Steps for running AI eval tests
 
 This directory has promptfoo-based tests for AI models.
+The instructions below are for a Windows OS but they should work with
+"brew install" instead of "winget install" for Mac OS also.
 
 * Prerequisites
 
@@ -18,15 +20,23 @@ Then, install promptfoo.
 
 * Models
 
-For testing OpenAI LLMs, set the OPENAI_API_KEY variable.
+If you want to use a local implementation of an LLM, you should
+install Ollama and pull a model. In the example below, I pulled the 8B
+Llama3 model.
 
-For testing Ollama-based LLMs, install Ollama, download an LLM, and run the
-Ollama server.
+#+begin_src
+  winget install Ollama.Ollama
+
+  # Note that this is the 8B model (5 GB file size)
+  ollama pull llama3
+#+end_src
 
 * Running tests
 
 Run the tests as follows.
 
 #+begin_src
-  promptfoo eval
+  promptfoo eval --config basic_local_llama3_tests.yaml
 #+end_src
+
+This will run the tests in the named YAML file.
