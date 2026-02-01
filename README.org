@@ -31,6 +31,54 @@ Llama3 model.
   ollama pull llama3
 #+end_src
 
+* Downloading model pth files
+
+If you do not have Python installed already, install it as follows.
+
+#+begin_src
+  winget install python
+#+end_src
+
+To get the original Llama models, create a .venv directory as follows.
+
+#+begin_src
+  python -m venv .venv
+  .venv/Scripts/activate
+#+end_src
+
+The virtual environment is now activated. You should see the text
+(.venv) in parentheses appear on the left of your command prompt.
+
+Type the following.
+
+#+begin_src
+  python -m pip install --upgrade pip
+  pip install -r requirements.txt
+#+end_src
+
+This will install all the necessary Python packages in your virtual
+environment.
+
+Now, go to https://llama.meta.com/llama-downloads/, accept the terms,
+and select the model(s) you want. You will then receive an email with a
+URL for each model type. You need to use this URL within 48 hours in
+the following steps, else it will expire.
+
+Type the following.
+#+begin_src
+  llama model list --show-all
+#+end_src
+
+Find the model ID for your model (left-most column in the
+table). Then, type the following.
+#+begin_src
+  llama model download --source meta --model-id <your_model_id>
+#+end_src
+
+When prompted, enter the URL that you received by email. The
+process will now commence and download the requested model to your
+computer.
+
 * Running tests
 
 Run the tests as follows.
