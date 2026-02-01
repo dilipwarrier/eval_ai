@@ -4,7 +4,33 @@ This directory has promptfoo-based tests for AI models.
 The instructions below are for a Windows OS but they should work with
 "brew install" instead of "winget install" for Mac OS also.
 
-* Prerequisites
+* Python virtual environment setup
+
+If you do not have Python installed already, install it as follows.
+#+begin_src
+  winget install python
+#+end_src
+
+To get the original Llama models, first, create a .venv directory as
+follows.
+#+begin_src
+  python -m venv .venv
+  .venv/Scripts/activate
+#+end_src
+
+The virtual environment is now activated. You should see the text
+(.venv) in parentheses appear on the left of your command prompt.
+
+Install all the Python packages from requirements.txt as follows.
+#+begin_src
+  python -m pip install --upgrade pip
+  pip install -r requirements.txt
+#+end_src
+
+This will install all the necessary Python packages in your virtual
+environment.
+
+* Promptfoo installation
 
 Install node.js to get npm.
 
@@ -18,10 +44,9 @@ Then, install promptfoo.
   npm install -g promptfoo
 #+end_src
 
-* Models
+* Ollama installation
 
-If you want to use a local implementation of an LLM, you should
-install Ollama and pull a model. In the example below, I pulled the 8B
+Install Ollama and pull a model. In the example below, I pulled the 8B
 Llama3 model.
 
 #+begin_src
@@ -33,51 +58,29 @@ Llama3 model.
 
 * Downloading model pth files
 
-If you do not have Python installed already, install it as follows.
-
-#+begin_src
-  winget install python
-#+end_src
-
-To get the original Llama models, create a .venv directory as follows.
-
-#+begin_src
-  python -m venv .venv
-  .venv/Scripts/activate
-#+end_src
-
-The virtual environment is now activated. You should see the text
-(.venv) in parentheses appear on the left of your command prompt.
-
-Type the following.
-
-#+begin_src
-  python -m pip install --upgrade pip
-  pip install -r requirements.txt
-#+end_src
-
-This will install all the necessary Python packages in your virtual
-environment.
-
-Now, go to https://llama.meta.com/llama-downloads/, accept the terms,
+Go to https://llama.meta.com/llama-downloads/, accept the terms,
 and select the model(s) you want. You will then receive an email with a
 URL for each model type. You need to use this URL within 48 hours in
 the following steps, else it will expire.
 
-Type the following.
+List the available llama models as follows.
 #+begin_src
   llama model list --show-all
 #+end_src
 
 Find the model ID for your model (left-most column in the
-table). Then, type the following.
+table). Then, download the appropriate model as follows.
 #+begin_src
   llama model download --source meta --model-id <your_model_id>
 #+end_src
 
 When prompted, enter the URL that you received by email. The
 process will now commence and download the requested model to your
-computer.
+computer. Note that the model you chose to download must be a model
+that you accepted the terms for earlier. Otherwise, you will get a
+download error.
+
+The models get downloaded to $USERPROFILE/.llama.
 
 * Running tests
 
