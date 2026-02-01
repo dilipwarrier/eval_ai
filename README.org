@@ -56,6 +56,16 @@ Llama3 model.
   ollama pull llama3
 #+end_src
 
+* Running tests
+
+Run the tests as follows.
+
+#+begin_src
+  promptfoo eval --config basic_local_llama3_tests.yaml
+#+end_src
+
+This will run the tests in the named YAML file.
+
 * Downloading model pth files
 
 Go to https://llama.meta.com/llama-downloads/, accept the terms,
@@ -81,13 +91,3 @@ that you accepted the terms for earlier. Otherwise, you will get a
 download error.
 
 The models get downloaded to $USERPROFILE/.llama.
-
-* Running tests
-
-Run the tests as follows.
-
-#+begin_src
-  promptfoo eval --config basic_local_llama3_tests.yaml
-#+end_src
-
-This will run the tests in the named YAML file.
