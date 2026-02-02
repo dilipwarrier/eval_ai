@@ -42,7 +42,7 @@ def run_main(
     ckpt_dir: str,
     temperature: float = 0.6,
     top_p: float = 0.9,
-    max_seq_len: int = 512,
+    max_seq_len: int = 50,
     max_batch_size: int = 4,
     world_size: Optional[int] = None,
     quantization_mode: Optional[str] = None,
@@ -58,23 +58,12 @@ def run_main(
 
     interleaved_contents = [
         "The color of the sky is blue but sometimes it can also be",
-        """\
-apple is pomme,
-bannana is banane,
-cherry is""",
+        """apple is pomme,
+        banana is banane,
+        cherry is""",
         "1, 2, 3, 5, 8, 13",
         "ba ba black sheep, have you any wool?",
     ]
-    if generator.args.vision_chunk_size > 0:
-        with open(THIS_DIR / "../../resources/dog.jpg", "rb") as f:
-            img = f.read()
-
-        interleaved_contents.append(
-            [
-                RawMediaItem(type="image", data=BytesIO(img)),
-                "If I had to write a haiku for this one",
-            ]
-        )
 
     for content in interleaved_contents:
         cprint(f"{content}", end="")
