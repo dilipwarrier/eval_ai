@@ -6,7 +6,7 @@ prompts:
   - 'Translate to {{language}}: {{input}}'
 
 providers:
-  - id: ollama:chat:llama3
+  - id: ollama:chat:llama3.1:8b
     label: 'Local-Llama3'
     config:
       temperature: 0
