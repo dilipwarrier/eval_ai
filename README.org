@@ -86,10 +86,12 @@ Run the tests as follows.
 
 This will run the tests in the named YAML file.
 
-* Downloading model pth files
+* Downloading Llama model files and running sample scripts
 
 Go to https://llama.meta.com/llama-downloads/, accept the terms,
-and select the model(s) you want. You will then receive an email with a
+and select the llama 3.2 1B and llama 3.1 8B models.
+
+You will then receive an email with a
 URL for each model type. You need to use this URL within 48 hours in
 the following steps, else it will expire.
 
@@ -101,7 +103,7 @@ List the available llama models as follows.
 Find the model ID for your model (left-most column in the
 table). Then, download the appropriate model as follows.
 #+begin_src
-  llama model download --source meta --model-id <your_model_id>
+  llama model download --source meta --model-id llama3.2-1B
 #+end_src
 
 When prompted, enter the URL that you received by email. The
@@ -110,4 +112,15 @@ computer. Note that the model you chose to download must be a model
 that you accepted the terms for earlier. Otherwise, you will get a
 download error.
 
+Next, download the llama3.1 model.
+#+begin_src
+  llama model download --source meta --model-id llama3.1-8B
+#+end_src
+
 The models get downloaded to ~/.llama.
+
+Then, run the sample llama3 chat completion script as follows.
+
+#+begin_src
+torchrun --nproc_per_node 1 llama3_sample_completion.py ~/.llama/checkpoints/Llama3.2-1B
+#+end_src
