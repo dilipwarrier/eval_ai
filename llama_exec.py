@@ -22,13 +22,14 @@ def get_device():
 
 
 def run_main(
-    ckpt_dir: str,
-    temperature: float = 0.6,
-    top_p: float = 0.9,
-    max_seq_len: int = 512,
-    max_batch_size: int = 1,
-    world_size: Optional[int] = None,
-    quantization_mode: Optional[str] = None,
+        ckpt_dir: str,
+        prompt: str,
+        temperature: float = 0.6,
+        top_p: float = 0.9,
+        max_seq_len: int = 25,
+        max_batch_size: int = 1,
+        world_size: Optional[int] = None,
+        quantization_mode: Optional[str] = None,
 ):
     generator = Llama3.build(
         ckpt_dir=ckpt_dir,
@@ -40,7 +41,9 @@ def run_main(
     )
 
     # Run the model
-    results = generator.completion([prompt], total_len=100)
+    results = generator.completion([prompt],
+                                   temperature=temperature,
+                                   top_p=top_p)
     
     # Print ONLY the output so promptfoo can capture it
     for token_results in results:
