@@ -6,12 +6,14 @@ prompts:
   - 'Translate to {{language}}: {{input}}'
 
 providers:
-  - id: ollama:chat:llama3.1:8b
-    label: 'Local-Llama3'
-    config:
-      temperature: 0
-      seed: 42
-
+  # - id: ollama:chat:llama3.1:8b
+  #   label: 'Ollama:llama3.1:8b'
+  #   config:
+  #     temperature: 0
+  #     seed: 42
+  - id: exec:torchrun --nproc_per_node 1 llama_exec.py --ckpt_dir /home/dilip/.llama/checkpoints/Llama3.2-1B --prompt "{{prompt}}"  
+    label: "Local:Llama3.2-1B"
+    
 tests:
   - vars:
       language: French

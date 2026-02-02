@@ -8,9 +8,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # This software may be used and distributed in accordance with the terms of the Llama 3 Community License Agreement.
 
-import os
-os.environ["USE_LIBUV"] = "0"
-
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
@@ -18,14 +15,10 @@ from typing import Optional
 import fire
 from termcolor import cprint
 
-from models.datatypes import RawMediaItem
 from models.llama3.generation import Llama3
 
 import os
 import torch
-
-
-THIS_DIR = Path(__file__).parent
 
 
 def get_device():

@@ -1,25 +1,33 @@
 #+TITLE: Steps for running AI eval tests
 
-This directory has promptfoo-based tests for AI models.
+This directory has sample scripts and promptfoo-based tests for AI models.
 
 The instructions below are for Linux.
 
-* Python virtual environment setup
+* Setup Python virtual environment
 
 If you do not have Python installed already, install it as follows.
 #+begin_src
   sudo apt-get install python3
 #+end_src
 
-Create a .venv directory and activate your Python virtual environment
-as follows.
+Create a .venv directory.
 #+begin_src
   python3 -m venv .venv
+#+end_src
+
+Activate your Python virtual environment.
+#+begin_src
   source .venv/bin/activate
 #+end_src
 
 The virtual environment is now activated. You should see the text
 (.venv) in parentheses appear on the left of your command prompt.
+
+You must run the source command each time you want to run the Python
+scripts described below.
+
+* Install Python packages
 
 Install all the Python packages from requirements.txt as follows.
 #+begin_src
@@ -31,39 +39,7 @@ This will install all the necessary Python packages in your virtual
 environment. Due to the large number of packages, this will take some
 time.
 
-* Promptfoo installation
-
-** Install Node.js
-We use NVM (Node Version Manager) to handle Node.js versions on
-Ubuntu WSL.
-
-#+begin_src bash
-# Update package list and install curl
-sudo apt update && sudo apt install -y curl
-
-# Download and install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-
-# Load nvm into the current session
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-# Install the Long Term Support (LTS) version of Node.js
-nvm install --lts
-#+end_src
-
-** Install promptfoo
-Next, we install promptfoo globally for CLI access.
-
-#+begin_src bash
-  # Install promptfoo globally using npm
-  npm install -g promptfoo
-
-  # Verify the installation
-  promptfoo --version
-#+end_src
-
-* Ollama installation
+* Install Ollama
 
 Install Ollama and pull a model. In the example below, I pulled the 8B
 Llama3 model.
@@ -76,7 +52,34 @@ Llama3 model.
   ollama pull llama3.1:8b
 #+end_src
 
-* Running tests
+* Install Node.js
+We use NVM (Node Version Manager) to handle Node.js versions on
+Ubuntu WSL.
+
+#+begin_src bash
+# Download and install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+# Load nvm into the current session
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Install the Long Term Support (LTS) version of Node.js
+nvm install --lts
+#+end_src
+
+* Install promptfoo
+Next, we install promptfoo globally for CLI access.
+
+#+begin_src bash
+  # Install promptfoo globally using npm
+  npm install -g promptfoo
+
+  # Verify the installation
+  promptfoo --version
+#+end_src
+
+* Run promptfoo tests
 
 Run the tests as follows.
 
@@ -86,7 +89,7 @@ Run the tests as follows.
 
 This will run the tests in the named YAML file.
 
-* Downloading Llama model files and running sample scripts
+* Download Llama model files
 
 Go to https://llama.meta.com/llama-downloads/, accept the terms,
 and select the llama 3.2 1B and llama 3.1 8B models.
@@ -119,8 +122,14 @@ Next, download the llama3.1 model.
 
 The models get downloaded to ~/.llama.
 
-Then, run the sample llama3 chat completion script as follows.
+The license for the models can be found in the Llama Github web site.
+For example, here is the link to the [[https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE][Llama 3.1 models license]].
 
+* Run sample Llama3 script
+
+[[*Setup Python virtual environment][Activate Python venv]]
+
+Run the sample llama3 chat completion script as follows.
 #+begin_src
 torchrun --nproc_per_node 1 llama3_sample_completion.py ~/.llama/checkpoints/Llama3.2-1B
 #+end_src
