@@ -1,21 +1,21 @@
 #+TITLE: Steps for running AI eval tests
 
 This directory has promptfoo-based tests for AI models.
-The instructions below are for a Windows OS but they should work with
-"brew install" instead of "winget install" for Mac OS also.
+
+The instructions below are for Linux.
 
 * Python virtual environment setup
 
 If you do not have Python installed already, install it as follows.
 #+begin_src
-  winget install python
+  sudo apt-get install python3
 #+end_src
 
-To get the original Llama models, first, create a .venv directory as
-follows.
+Create a .venv directory and activate your Python virtual environment
+as follows.
 #+begin_src
-  python -m venv .venv
-  .venv/Scripts/activate
+  python3 -m venv .venv
+  source .venv/bin/activate
 #+end_src
 
 The virtual environment is now activated. You should see the text
@@ -28,20 +28,39 @@ Install all the Python packages from requirements.txt as follows.
 #+end_src
 
 This will install all the necessary Python packages in your virtual
-environment.
+environment. Due to the large number of packages, this will take some
+time.
 
 * Promptfoo installation
 
-Install node.js to get npm.
+** Install Node.js
+We use NVM (Node Version Manager) to handle Node.js versions on
+Ubuntu WSL.
 
-#+begin_src
-  winget install OpenJS.NodeJS.LTS
+#+begin_src bash
+# Update package list and install curl
+sudo apt update && sudo apt install -y curl
+
+# Download and install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+# Load nvm into the current session
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Install the Long Term Support (LTS) version of Node.js
+nvm install --lts
 #+end_src
 
-Then, install promptfoo.
+** Install promptfoo
+Next, we install promptfoo globally for CLI access.
 
-#+begin_src
+#+begin_src bash
+  # Install promptfoo globally using npm
   npm install -g promptfoo
+
+  # Verify the installation
+  promptfoo --version
 #+end_src
 
 * Ollama installation
@@ -50,10 +69,11 @@ Install Ollama and pull a model. In the example below, I pulled the 8B
 Llama3 model.
 
 #+begin_src
-  winget install Ollama.Ollama
+  sudo apt-get install zstd
+  curl -fsSL https://ollama.com/install.sh | sh
 
   # Note that this is the 8B model (5 GB file size)
-  ollama pull llama3
+  ollama pull llama3.1:8b
 #+end_src
 
 * Running tests
@@ -90,4 +110,4 @@ computer. Note that the model you chose to download must be a model
 that you accepted the terms for earlier. Otherwise, you will get a
 download error.
 
-The models get downloaded to $USERPROFILE/.llama.
+The models get downloaded to ~/.llama.
