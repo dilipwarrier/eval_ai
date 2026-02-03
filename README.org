@@ -124,3 +124,55 @@ Then, run the sample llama3 chat completion script as follows.
 #+begin_src
 torchrun --nproc_per_node 1 llama3_sample_completion.py ~/.llama/checkpoints/Llama3.2-1B
 #+end_src
+
+* Installing huggingface cli
+
+Install huggingface to download models that vllm will use.
+#+begin_src
+curl -LsSf https://hf.co/cli/install.sh | bash
+#+end_src
+
+Next, setup an account on huggingface.co and get an access token.
+
+Then, type the following and enter your access token when asked.
+#+begin_src
+hf auth login
+#+end_src
+
+Download the facebook/opt-125m model as follows.
+#+begin_src
+hf download --repo-type model facebook/opt-125m
+#+end_src
+
+If it is correctly downloaded, the following command will show you the model in the hf cache.
+#+begin_src
+hf cache scan
+#+end_src
+
+* Installing vllm
+
+For vllm, the standard "pip install -r requirements.txt" method doesn't work.
+
+This is because vllm requires different modules depending upon whether it is running on a CPU or a GPU.
+
+** CPU-specific instructions
+
+If your machine only has a CPU, proceed as follows.
+
+First, confirm that the CPU you have is in the recommended list mentioned [[https://docs.vllm.ai/en/latest/getting_started/installation/cpu/][here]].
+
+#+begin_src
+pip install vllm --extra-index-url https://wheels.vllm.ai/0.15.0/cpu \
+--extra-index-url https://download.pytorch.org/whl/cpu \
+--extra-index-url https://pypi.org/simple
+#+end_src
+
+You can check that the cpu versions of libraries got installed.
+#+begin_src
+pip freeze | grep cpu
+#+end_src
+
+For running on a CPU, you also need to install some Linux libraries as follows.
+#+begin_src
+sudo apt-get install libtcmalloc-minimal4 libnuma-dev numactl
+#+end_src
