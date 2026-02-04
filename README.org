@@ -21,6 +21,11 @@ as follows.
 The virtual environment is now activated. You should see the text
 (.venv) in parentheses appear on the left of your command prompt.
 
+You must always run this step before executing any Python scripts
+in this repository, else you will encounter run-time errors.
+
+* Python package installation
+
 Install all the Python packages from requirements.txt as follows.
 #+begin_src
   python -m pip install --upgrade pip
@@ -30,6 +35,40 @@ Install all the Python packages from requirements.txt as follows.
 This will install all the necessary Python packages in your virtual
 environment. Due to the large number of packages, this will take some
 time.
+
+* Running vllm
+
+Currently, this will only work in a GPU environment.
+
+After activating your GPU virtual environment, run the following.
+
+#+begin_src
+python basic_vllm.py
+#+end_src
+
+This script will test a Meta LLM with some basic prompts.
+
+** [Work in progress] CPU-specific instructions
+
+If your machine only has a CPU, proceed as follows.
+
+First, confirm that the CPU you have is in the recommended list mentioned [[https://docs.vllm.ai/en/latest/getting_started/installation/cpu/][here]].
+
+#+begin_src
+pip install vllm --extra-index-url https://wheels.vllm.ai/0.15.0/cpu \
+--extra-index-url https://download.pytorch.org/whl/cpu \
+--extra-index-url https://pypi.org/simple
+#+end_src
+
+You can check that the cpu versions of libraries got installed.
+#+begin_src
+pip freeze | grep cpu
+#+end_src
+
+For running on a CPU, you also need to install some Linux libraries as follows.
+#+begin_src
+sudo apt-get install libtcmalloc-minimal4 libnuma-dev numactl
+#+end_src
 
 * Promptfoo installation
 
@@ -149,30 +188,3 @@ If it is correctly downloaded, the following command will show you the model in 
 hf cache scan
 #+end_src
 
-* Installing vllm
-
-For vllm, the standard "pip install -r requirements.txt" method doesn't work.
-
-This is because vllm requires different modules depending upon whether it is running on a CPU or a GPU.
-
-** CPU-specific instructions
-
-If your machine only has a CPU, proceed as follows.
-
-First, confirm that the CPU you have is in the recommended list mentioned [[https://docs.vllm.ai/en/latest/getting_started/installation/cpu/][here]].
-
-#+begin_src
-pip install vllm --extra-index-url https://wheels.vllm.ai/0.15.0/cpu \
---extra-index-url https://download.pytorch.org/whl/cpu \
---extra-index-url https://pypi.org/simple
-#+end_src
-
-You can check that the cpu versions of libraries got installed.
-#+begin_src
-pip freeze | grep cpu
-#+end_src
-
-For running on a CPU, you also need to install some Linux libraries as follows.
-#+begin_src
-sudo apt-get install libtcmalloc-minimal4 libnuma-dev numactl
-#+end_src
