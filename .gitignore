@@ -10,3 +10,4 @@ venv/
 # Other common Python artifacts
 __pycache__/
 *.py[cod]
+autogen_*
