@@ -134,6 +134,12 @@ def main():
         if args.save_text:
             with open(args.save_text, 'w') as f:
                 f.write(full_output_text)
+        else:
+            print("\n" + "="*45)
+            print("LLM OUTPUT:")
+            print("-" * 45)
+            print(full_output_text)
+            print("="*45)
 
         if args.json:
             sys.stdout.write(json.dumps([asdict(r) for r in results]))
