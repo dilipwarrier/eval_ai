@@ -151,7 +151,7 @@ def main():
     parser.add_argument(
         "--json",
         action="store_true",
-        help="Output timing metrics as a JSON array to stdout.",
+        help="Output results in clean JSON format to stdout.",
     )
     parser.add_argument(
         "--save-output",
@@ -198,6 +198,7 @@ def main():
                 f.write(full_output_text)
 
         if args.json:
+            # JSON format includes all PhaseStats fields (inc. prompt_tokens)
             sys.stdout.write(json.dumps([asdict(r) for r in results]))
             sys.stdout.flush()
         else:
@@ -215,18 +216,22 @@ def main():
                 print(full_output_text)
                 print("=" * 45)
 
-            # Updated table with tokens column
-            print("\n" + "=" * 58)
-            header = f"{'PHASE':15} | {'TIME':8} | {'DEVICE':7} | {'TOKENS':6}"
+            # Updated table with Input and Output tokens columns
+            print("\n" + "=" * 76)
+            header = (
+                f"{'PHASE':15} | {'TIME':8} | {'DEVICE':7} | "
+                f"{'INPUT TOKENS':12} | {'OUTPUT TOKENS':13}"
+            )
             print(header)
-            print("-" * 58)
+            print("-" * 76)
             for r in results:
                 line = (
                     f"{r.phase_name:15} | {r.wall_s:7.4f}s | "
-                    f"{r.device:7} | {r.gen_tokens:6}"
+                    f"{r.device:7} | {r.prompt_tokens:12} | "
+                    f"{r.gen_tokens:13}"
                 )
                 print(line)
-            print("=" * 58)
+            print("=" * 76)
 
     finally:
         del vllm_engine
