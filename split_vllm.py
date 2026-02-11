@@ -7,9 +7,6 @@ Model inference on Lyptus hardware:
 1. Initialization: Model loading, VRAM allocation, and CUDA graph capture.
 2. Prefill (TTFT): Initial processing of the prompt and first token generation.
 3. Decode (TPOT): Sequential generation of subsequent tokens.
-
-The script runs silently during inference. Results are output as a summary
-table or a JSON object containing timing metrics.
 """
 
 import os
@@ -164,7 +161,7 @@ def main():
     )
     args = parser.parse_args()
 
-    # --- 1. INITIALIZATION (CPU + GPU) ---
+    # --- 1. INITIALIZATION ---
     init_start = perf_counter()
     vllm_engine = build_engine(
         model=args.model,
@@ -196,17 +193,21 @@ def main():
         stat_d, full_output_text = run_phase(vllm_engine, request_id, "DECODE")
         results.append(stat_d)
 
-        # File saving logic
         if args.save_output:
             with open(args.save_output, 'w') as f:
                 f.write(full_output_text)
 
         if args.json:
-            # Output only metrics in JSON mode
             sys.stdout.write(json.dumps([asdict(r) for r in results]))
             sys.stdout.flush()
         else:
-            # Human-readable mode
+            # Output prompt input and generated text in standard format
+            print("\n" + "=" * 45)
+            print("LLM PROMPT INPUT:")
+            print("-" * 45)
+            print(formatted_prompt)
+            print("=" * 45)
+
             if not args.save_output:
                 print("\n" + "=" * 45)
                 print("LLM OUTPUT:")
@@ -214,11 +215,18 @@ def main():
                 print(full_output_text)
                 print("=" * 45)
 
-            print("\n" + "=" * 45)
+            # Updated table with tokens column
+            print("\n" + "=" * 58)
+            header = f"{'PHASE':15} | {'TIME':8} | {'DEVICE':7} | {'TOKENS':6}"
+            print(header)
+            print("-" * 58)
             for r in results:
-                line = f"{r.phase_name:15} | {r.wall_s:8.4f}s | {r.device}"
+                line = (
+                    f"{r.phase_name:15} | {r.wall_s:7.4f}s | "
+                    f"{r.device:7} | {r.gen_tokens:6}"
+                )
                 print(line)
-            print("=" * 45)
+            print("=" * 58)
 
     finally:
         del vllm_engine
