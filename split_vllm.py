@@ -3,10 +3,8 @@
 vLLM Phase Profiler and Performance Benchmarker
 
 This script measures and analyzes the three primary phases of Large Language
-Model inference on Lyptus hardware:
-1. Initialization: Model loading, VRAM allocation, and CUDA graph capture.
-2. Prefill (TTFT): Initial processing of the prompt and first token generation.
-3. Decode (TPOT): Sequential generation of subsequent tokens.
+Model inference on GPU hardware. Results are output as a summary table
+or a pretty-printed JSON object for Promptfoo integration.
 """
 
 import os
@@ -84,7 +82,6 @@ def run_phase(
                 p_count, g_count, current_text = _extract_data(ro)
                 final_text = current_text
 
-                # Return as soon as the first token exists for PREFILL
                 if phase == "PREFILL" and g_count >= 1:
                     return (
                         PhaseStats(
@@ -106,58 +103,32 @@ def run_phase(
 
 def main():
     parser = argparse.ArgumentParser(
-        description=(
-            "Run an LLM in the vLLM framework, measure phase times, "
-            "and output results"
-        ),
+        description="Run vLLM and output Promptfoo-native results",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--prompt",
-        type=str,
+        "--prompt", type=str,
         default="Write a 1000 word essay on the Enlightenment movement",
         help="The input text to process.",
     )
     parser.add_argument(
-        "--model",
-        type=str,
-        default="Qwen/Qwen2.5-1.5B-Instruct",
+        "--model", type=str, default="Qwen/Qwen2.5-1.5B-Instruct",
         help="Name or path of the model to load.",
     )
+    parser.add_argument("--max-model-len", type=int, default=2048)
     parser.add_argument(
-        "--max-model-len",
-        type=int,
-        default=2048,
-        help="Maximum sequence length for the model KV cache.",
+        "--dtype", type=str, default="auto",
+        choices=["auto", "float16", "bfloat16", "float32"]
+    )
+    parser.add_argument("--gpu-util", type=float, default=0.9)
+    parser.add_argument("--enforce-eager", action="store_true")
+    parser.add_argument(
+        "--json", action="store_true",
+        help="Output pretty-printed JSON with metrics and text.",
     )
     parser.add_argument(
-        "--dtype",
-        type=str,
-        default="auto",
-        choices=["auto", "float16", "bfloat16", "float32"],
-        help="Data type for model weights and activations.",
-    )
-    parser.add_argument(
-        "--gpu-util",
-        type=float,
-        default=0.9,
-        help="Fraction of GPU VRAM to reserve (0.0 to 1.0).",
-    )
-    parser.add_argument(
-        "--enforce-eager",
-        action="store_true",
-        help="Skip CUDA graph capture for faster startup but slower inference.",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output results in clean JSON format to stdout.",
-    )
-    parser.add_argument(
-        "--save-output",
-        type=str,
-        metavar="PATH",
-        help="Save the generated LLM output text to the specified file path.",
+        "--save-output", type=str, metavar="PATH",
+        help="Save output text to the specified file path.",
     )
     args = parser.parse_args()
 
@@ -186,6 +157,7 @@ def main():
 
     try:
         vllm_engine.add_request(request_id, formatted_prompt, sampling_params)
+        inference_start = perf_counter()
 
         stat_p, _ = run_phase(vllm_engine, request_id, "PREFILL")
         results.append(stat_p)
@@ -193,16 +165,28 @@ def main():
         stat_d, full_output_text = run_phase(vllm_engine, request_id, "DECODE")
         results.append(stat_d)
 
+        total_latency_ms = (perf_counter() - inference_start) * 1000
+
         if args.save_output:
             with open(args.save_output, 'w') as f:
                 f.write(full_output_text)
 
         if args.json:
-            # JSON format includes all PhaseStats fields (inc. prompt_tokens)
-            sys.stdout.write(json.dumps([asdict(r) for r in results]))
+            # Truncate text for readability in terminal
+            disp_text = full_output_text
+            if len(disp_text) > 100:
+                disp_text = disp_text[:100] + "..."
+
+            promptfoo_output = {
+                "output": disp_text,
+                "metadata": [asdict(r) for r in results],
+                "latencyMs": round(total_latency_ms, 2)
+            }
+            # indent=4 for pretty-printing
+            sys.stdout.write(json.dumps(promptfoo_output, indent=4))
+            sys.stdout.write("\n")
             sys.stdout.flush()
         else:
-            # Output prompt input and generated text in standard format
             print("\n" + "=" * 45)
             print("LLM PROMPT INPUT:")
             print("-" * 45)
@@ -216,7 +200,6 @@ def main():
                 print(full_output_text)
                 print("=" * 45)
 
-            # Updated table with Input and Output tokens columns
             print("\n" + "=" * 76)
             header = (
                 f"{'PHASE':15} | {'TIME':8} | {'DEVICE':7} | "
