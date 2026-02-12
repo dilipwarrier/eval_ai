@@ -112,7 +112,8 @@ def main():
         help="The input text to process.",
     )
     parser.add_argument(
-        "--model", type=str, default="Qwen/Qwen2.5-1.5B-Instruct",
+        #"--model", type=str, default="Qwen/Qwen2.5-1.5B-Instruct",
+        "--model", type=str, default="/opt/huggingface/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
         help="Name or path of the model to load.",
     )
     parser.add_argument("--max-model-len", type=int, default=2048)
