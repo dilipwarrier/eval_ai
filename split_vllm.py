@@ -16,7 +16,7 @@ import json
 import logging
 from dataclasses import dataclass, asdict
 from time import perf_counter
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 
 # Standard vLLM environment controls
 os.environ["VLLM_LOGGING_LEVEL"] = "WARNING"
@@ -104,11 +104,14 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
     gpu_util = config.get('gpu_util', 0.9)
     save_path = config.get('save_output')
 
+    # --- PHASE 1: INITIALIZATION ---
+    init_start = perf_counter()
     vllm_engine = build_engine(
         model=model_name,
         gpu_memory_utilization=gpu_util,
         enforce_eager=enforce_eager
     )
+    init_duration = perf_counter() - init_start
 
     try:
         tokenizer = get_tokenizer(model_name)
@@ -121,28 +124,50 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
         request_id = "bench_request"
 
         vllm_engine.add_request(request_id, formatted_prompt, sampling_params)
-        inference_start = perf_counter()
 
+        # --- PHASE 2: PREFILL ---
+        # Note: We don't include prefill setup in the timing, just the execution
         stat_p, _ = run_phase(vllm_engine, request_id, "PREFILL")
+
+        # --- PHASE 3: DECODE ---
         stat_d, full_output_text = run_phase(vllm_engine, request_id, "DECODE")
 
-        total_latency_ms = (perf_counter() - inference_start) * 1000
+        # Calculate Totals
+        # Note: stat_p and stat_d have their own wall_s.
+        # Total latency is Init + Prefill + Decode (approximate)
+        total_time_s = init_duration + stat_p.wall_s + stat_d.wall_s
+        total_input_tokens = stat_p.prompt_tokens
+        total_output_tokens = stat_d.gen_tokens
 
-        # Save FULL output to file if requested
         if save_path:
             with open(save_path, 'w') as f:
                 f.write(full_output_text)
 
+        # Construct Promptfoo response
         return {
             "output": full_output_text,
             "metadata": {
                 "formatted_prompt": formatted_prompt,
+
+                # Detailed Breakdown for Table
+                "init_s": round(init_duration, 4),
+                "init_input_tokens": 0,
+                "init_output_tokens": 0,
+
                 "prefill_s": round(stat_p.wall_s, 4),
+                "prefill_input_tokens": stat_p.prompt_tokens,
+                "prefill_output_tokens": 1, # By definition, prefill stops after 1 token
+
                 "decode_s": round(stat_d.wall_s, 4),
-                "prompt_tokens": stat_p.prompt_tokens,
-                "gen_tokens": stat_d.gen_tokens
+                "decode_input_tokens": 0,
+                "decode_output_tokens": stat_d.gen_tokens,
+
+                "total_s": round(total_time_s, 4),
+                "total_input_tokens": total_input_tokens,
+                "total_output_tokens": total_output_tokens,
             },
-            "latencyMs": round(total_latency_ms, 2)
+            # Promptfoo uses this field for its main latency metric
+            "latencyMs": round(total_time_s * 1000, 2)
         }
     finally:
         del vllm_engine
@@ -152,6 +177,24 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
             torch.cuda.empty_cache()
         except ImportError:
             pass
+
+def print_metrics_table(meta: Dict[str, Any]):
+    """Prints a formatted table of metrics."""
+    # Header
+    print(f"{'PHASE':<15} | {'TIME (s)':<10} | {'INPUT TOKENS':<12} | {'OUTPUT TOKENS':<13}")
+    print("-" * 58)
+
+    # Rows
+    rows = [
+        ("Initialization", meta["init_s"], meta["init_input_tokens"], meta["init_output_tokens"]),
+        ("Prefill", meta["prefill_s"], meta["prefill_input_tokens"], meta["prefill_output_tokens"]),
+        ("Decode", meta["decode_s"], meta["decode_input_tokens"], meta["decode_output_tokens"]),
+        ("Total", meta["total_s"], meta["total_input_tokens"], meta["total_output_tokens"]),
+    ]
+
+    for name, time_s, in_tok, out_tok in rows:
+        print(f"{name:<15} | {time_s:<10.4f} | {in_tok:<12} | {out_tok:<13}")
+    print("=" * 58)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -183,32 +226,29 @@ def main():
     res = call_api(args.prompt, {"config": vars(args)}, {})
 
     if args.json:
-        # Truncate 'output' field with ellipses if long for JSON readability
         if len(res['output']) > 200:
             res['output'] = res['output'][:200] + "..."
         sys.stdout.write(json.dumps(res, indent=4) + "\n")
     else:
-        print("\n" + "="*45)
-        print("INFERENCE DETAILS")
-        print("-"*45)
+        print("\n" + "="*58)
+        print("FORMATTED PROMPT")
+        print("-"*58)
         print(f"Prompt:\n{res['metadata']['formatted_prompt']}")
 
-        print("\n" + "="*45)
+        print("\n" + "="*58)
         print("PHASE PERFORMANCE METRICS")
-        print("-"*45)
-        for key in ["prefill_s", "decode_s", "prompt_tokens", "gen_tokens"]:
-            print(f"{key:15}: {res['metadata'][key]}")
-        print(f"{'total_latency':15}: {res['latencyMs']} ms")
-        print("="*45)
+        print("-"*58)
+
+        print_metrics_table(res["metadata"])
 
         if args.save_output:
             print(f"\nFull output saved to: {args.save_output}")
         else:
-            print("\n" + "="*45)
+            print("\n" + "="*58)
             print("FULL LLM OUTPUT")
-            print("-"*45)
+            print("-"*58)
             print(res['output'])
-            print("="*45)
+            print("="*58)
 
 if __name__ == "__main__":
     main()
