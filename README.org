@@ -48,28 +48,6 @@ python basic_vllm.py
 
 This script will test a Meta LLM with some basic prompts.
 
-** [Work in progress] CPU-specific instructions
-
-If your machine only has a CPU, proceed as follows.
-
-First, confirm that the CPU you have is in the recommended list mentioned [[https://docs.vllm.ai/en/latest/getting_started/installation/cpu/][here]].
-
-#+begin_src
-pip install vllm --extra-index-url https://wheels.vllm.ai/0.15.0/cpu \
---extra-index-url https://download.pytorch.org/whl/cpu \
---extra-index-url https://pypi.org/simple
-#+end_src
-
-You can check that the cpu versions of libraries got installed.
-#+begin_src
-pip freeze | grep cpu
-#+end_src
-
-For running on a CPU, you also need to install some Linux libraries as follows.
-#+begin_src
-sudo apt-get install libtcmalloc-minimal4 libnuma-dev numactl
-#+end_src
-
 * Promptfoo installation
 
 ** Install Node.js
@@ -187,4 +165,3 @@ If it is correctly downloaded, the following command will show you the model in 
 #+begin_src
 hf cache scan
 #+end_src
-
