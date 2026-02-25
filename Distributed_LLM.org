@@ -33,7 +33,7 @@ It only supports a specific use case where all the nodes are Nvidia
 GPU nodes. Under the hood, it supports this feature by enabling
 transfers of the KV cache between nodes using the [[https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models/][Nvidia Inference
 Transfer Library]] (NIXL). This is clearly not reusable for other
-processors.
+GPUs.
 
 * Recommendation on next steps
 
@@ -56,15 +56,16 @@ The challenges we need to solve in this workstream are:
 
 In the second workstream, we will look at alternatives like [[https://github.com/llm-d][llm-d]]. The
 stated goal of llm-d is to be a "Kubernetes-native high-performance
-distributed LLM inference framework." Further, it provides benchmarked
+distributed LLM inference framework." Further, it provides validated
 recipes for running distributed prefill and decode on generic
 nodes. Under the hood, llm-d uses vLLM as its inference serving
 engine, so we can expect a good amount of carry-over of vLLM scripts.
 
 The challenges we need to solve in this workstream are:
-1. Can llm-d be run on a CPU? All the existing recipes are for recent
-   [[https://llm-d.ai/docs/guide/Installation/prerequisites#llm-d-infrastructure][data center class accelerators]].
+1. Can llm-d be run on a setup of just two GPUs, each from a different
+   manufacturer?
 
 * References
 
 - [[https://www.youtube.com/watch?v=FPr37jCOvrA][Youtube video on disaggregated prefill in vLLM]]
+- [[https://llm-d.ai/docs/guide/Installation/prerequisites#llm-d-infrastructure][Accelerators supported by llm-d]]
