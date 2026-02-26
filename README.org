@@ -51,7 +51,8 @@ This script will test a default LLM with some basic prompts.
 * Installing llm-d
 
 First, download the shell script to install the pre-requisites for
-llm-d as follows.
+llm-d as follows. This will install the Kubernetes command-line
+controller kubectl, a YAML parser yq, etc.
 #+begin_src shell
   curl -O https://raw.githubusercontent.com/llm-d/llm-d/main/guides/prereq/client-setup/install-deps.sh
   chmod 755 ./install-deps.sh && ./install-deps.sh
@@ -60,10 +61,12 @@ llm-d as follows.
 Once, the installation is completed, you should get a message "All
 tools installed successfully."
 
-Next, install minikube to run the Kubernetes cluster locally. Set it
-up within a Docker environment. Note that this assumes a Linux OS, an
-AMD64 CPU, and one or more Nvidia GPUs. These steps will be different
-if you have a different configuration.
+Next, install minikube to run the Kubernetes cluster locally and set it
+up within a Docker run-time environment.
+
+Note that this step assumes a Linux OS, an AMD64 CPU, and one or more
+Nvidia GPUs. The commands will be different if you have a different
+configuration.
 #+begin_src shell
   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
   sudo install minikube-linux-amd64 /usr/local/bin/minikube
@@ -73,10 +76,10 @@ if you have a different configuration.
   sudo systemctl restart docker
   sudo usermod -aG docker $USER && newgrp docker
 
-  # Start a Minikube node
+  # Start a Minikube node with a Docker container and access to the GPUs
   minikube start --driver=docker --gpus all
 
-  # Make Nvidia GPU an available resource for Kubernetes pods
+  # Make the Nvidia GPU available as a resource to Kubernetes pods
   minikube addons enable nvidia-device-plugin
 #+end_src
 
@@ -89,8 +92,7 @@ following command.
 Next, setup an account on huggingface.co and get an access token.
 
 Use that token in the shell command below to create a secret in the
-llm-d namespace for Kubernetes.
-
+llm-d namespace.
 #+begin_src shell
   export HF_TOKEN=<your_Huggingface_token>
   export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
@@ -138,13 +140,22 @@ Next, we are ready to run one of the llm-d services. We will use
 Run this command in the directory where you cloned llm-d.
 #+begin_src shell
   cd guides/inference-scheduling
-  kubectl apply -n llm-d
+
+  # Scale down the default GPU requirements
+  helmfile -f helmfile.yaml.gotmpl apply -n llm-d \
+  --set ms-inference-scheduling.replicaCount=1 \
+  --set ms-inference-scheduling.vllm.tensorParallelSize=1 \
+  --set ms-inference-scheduling.resources.limits."nvidia\.com/gpu"=1 \
+  --set ms-inference-scheduling.resources.requests."nvidia\.com/gpu"=1 \
+  --set ms-inference-scheduling.resources.requests.cpu=4 \
+  --set ms-inference-scheduling.resources.requests.memory=16Gi
 #+end_src
 
 ** Reference links
 
 The instructions in the section above are adapted from the llm-d
 [[https://llm-d.ai/docs/guide/Installation/quickstart][QuickStart guide]].
+
 
 * Promptfoo installation
 
@@ -167,6 +178,7 @@ export NVM_DIR="$HOME/.nvm"
 nvm install --lts
 #+end_src
 
+
 ** Install promptfoo
 Next, we install promptfoo globally for CLI access.
 
@@ -177,6 +189,7 @@ Next, we install promptfoo globally for CLI access.
   # Verify the installation
   promptfoo --version
 #+end_src
+
 
 * Ollama installation
 
@@ -191,6 +204,7 @@ Llama3 model.
   ollama pull llama3.1:8b
 #+end_src
 
+
 * Running tests
 
 Run the tests as follows.
@@ -200,6 +214,7 @@ Run the tests as follows.
 #+end_src
 
 This will run the tests in the named YAML file.
+
 
 * Downloading Llama model files and running sample scripts
 
@@ -239,6 +254,7 @@ Then, run the sample llama3 chat completion script as follows.
 #+begin_src
 torchrun --nproc_per_node 1 llama3_sample_completion.py ~/.llama/checkpoints/Llama3.2-1B
 #+end_src
+
 
 * Installing huggingface CLI
 
