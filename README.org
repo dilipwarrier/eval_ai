@@ -205,12 +205,10 @@ the machine get forwarded to port 80 in the Minikube deployment.
   # Start the tunnel in the background
   kubectl port-forward -n llm-d svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
 
-  # Store the Process ID (PID) so you can stop it later
-  export TUNNEL_PID=$!
-  echo "Tunnel established at http://localhost:8080 (PID: $TUNNEL_PID)"
+  echo "Tunnel established from http://localhost:8080 to port 80 of Minikube"
 #+end_src
 
-Run a test prompt.
+Run a test prompt against the completions API.
 #+begin_src shell
   curl -i http://localhost:8080/v1/completions \
        -H "Content-Type: application/json" \
@@ -224,10 +222,19 @@ Run a test prompt.
 You should see the output in JSON form including the prompt response
 and other metadata.
 
-When you're done with your experiments, run the following to stop the
-port forwarding.
+** Cleanup
+
+When you're done with your experiments, run the following to cleanup.
 #+begin_src shell
-  kill $TUNNEL_PID
+  # Kill port-forwarding process
+  pkill -f "kubectl port-forward"
+
+  # Scale down deployment to 0
+  kubectl scale deployment -n llm-d --all --replicas=0
+
+  # Destroy resources
+  INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
+  helmfile -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" destroy -n llm-d
 #+end_src
 
 ** Reference links
