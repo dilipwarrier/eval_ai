@@ -235,6 +235,9 @@ When you're done with your experiments, run the following to cleanup.
   # Destroy resources
   INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
   helmfile -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" destroy -n llm-d
+
+  # Release minikube node
+  minikube stop
 #+end_src
 
 ** Reference links
