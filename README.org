@@ -153,9 +153,13 @@ Now, we are ready to run one of the llm-d services. We will use
 "Inference Scheduling" as our chosen example.
 
 The default configuration uses a large model and assumes the
-availability of several GPU cores. I used an updated yaml file that
+availability of several GPU cores. We use an updated yaml file that
 uses a Qwen2.5 LLM model and scales down GPU requirements from the
 default.
+
+This assumes that you have the eval_ai and llm-d repositories
+checked out at the same level. If not, adjust the path for the diff
+file accordingly.
 #+begin_src shell
   pushd llm-d
   diff_path="../eval_ai/ms-inference-scheduling-values.diff"
@@ -196,8 +200,7 @@ from an external port.
 #+end_src
 
 Now, setup port forwarding so that requests received on port 8080 of
-the machine get forwarded to
-
+the machine get forwarded to port 80 in the Minikube deployment.
 #+begin_src shell
   # Start the tunnel in the background
   kubectl port-forward -n llm-d svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
@@ -213,13 +216,19 @@ Run a test prompt.
        -H "Content-Type: application/json" \
        -d '{
            "model": "Qwen/Qwen2.5-1.5B-Instruct",
-           "prompt": "A short haiku on llm-d is as follows",
-           "max_tokens": 100
+           "prompt": "The capital of France is",
+           "max_tokens": 20
            }'
 #+end_src
 
 You should see the output in JSON form including the prompt response
 and other metadata.
+
+When you're done with your experiments, run the following to stop the
+port forwarding.
+#+begin_src shell
+  kill $TUNNEL_PID
+#+end_src
 
 ** Reference links
 
