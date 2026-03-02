@@ -50,12 +50,25 @@ This script will test a default LLM with some basic prompts.
 
 * Installing llm-d
 
+Checkout the v0.5.1-rc4 release of llm-d.
+#+begin_src shell
+  tag="v0.5.1-rc.4"
+  git clone https://github.com/llm-d/llm-d.git
+  pushd llm-d
+  git fetch --tags -f
+  git checkout ${tag}
+  popd
+#+end_src
+
 First, download the shell script to install the pre-requisites for
 llm-d as follows. This will install the Kubernetes command-line
 controller kubectl, a YAML parser yq, etc.
 #+begin_src shell
-  curl -O https://raw.githubusercontent.com/llm-d/llm-d/main/guides/prereq/client-setup/install-deps.sh
-  chmod 755 ./install-deps.sh && ./install-deps.sh
+  # Define the gateway path variable
+  CLIENT_SETUP_PATH="llm-d/guides/prereq/client-setup"
+
+  # 1. Run the script to install all dependencies
+  (cd "$CLIENT_SETUP_PATH" && ./install-deps.sh)
 #+end_src
 
 Once, the installation is completed, you should get a message "All
@@ -83,8 +96,8 @@ configuration.
   minikube addons enable nvidia-device-plugin
 #+end_src
 
-If everything went well, you should see a ready Minikube node when you run the
-following command.
+If everything went well, you should see a minikube node with status
+"READY" when you run the following command.
 #+begin_src shell
   kubectl get nodes
 #+end_src
@@ -103,53 +116,110 @@ llm-d namespace.
       --dry-run=client -o yaml | kubectl apply -f -
 #+end_src
 
-Checkout the latest release of llm-d.
+Run the following commands to install the istio gateway provider.
 #+begin_src shell
-  branch=$(curl -s https://api.github.com/repos/llm-d/llm-d/releases/latest | jq -r '.tag_name')
-  # Clone the repo and switch to the desired branch
-  git clone https://github.com/llm-d/llm-d.git && cd llm-d && git
-  checkout ${branch}
+  # Define the gateway path variable
+  GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
+
+  # 1. Run the dependency script to create the
+  # Custom Resource Definitions (CRDs) for the gateway
+  (cd "$GATEWAY_PATH" && ./install-gateway-provider-dependencies.sh)
+
+  # 2. Apply the helmfile using the path
+  helmfile --quiet --file "$GATEWAY_PATH/istio.helmfile.yaml" apply
 #+end_src
 
-Run the following commands from the directory where you cloned llm-d.
-These commands install the istio gateway provider.
+If all went well, the first command below should show at least one API
+resource each of KIND InferencePool and InferenceObjective. The second
+command should show a pod with status "Running".
 #+begin_src shell
-    curl -O https://raw.githubusercontent.com/llm-d/llm-d/main/guides/prereq/gateway-provider/install-gateway-provider-dependencies.sh
-    chmod 755 ./install-gateway-provider-dependencies.sh && ./install-gateway-provider-dependencies.sh
-    helmfile apply -f llm-d/guides/prereq/gateway-provider/istio.helmfile.yaml
-#+end_src
-
-If all went well, the following command should show at least one API
-resource each of KIND InferencePool and InferenceObjective.
-#+begin_src shell
-kubectl api-resources | grep -iE "KIND|inference.networking.*k8s"
+  kubectl api-resources | grep -iE "KIND|inference.networking.*k8s"
+  kubectl get pods -n istio-system
 #+end_src
 
 llm-d requires monitoring services to be set up. With the following
 commands, set up Prometheus as the monitoring service.
 #+begin_src shell
-   kubectl apply -f
-   https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
-   kubectl apply -f
-   https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
 #+end_src
 
-Next, we are ready to run one of the llm-d services. We will use
+Confirm that the monitoring CRDs have been created.
+#+begin_src shell
+  kubectl get crds | grep monitoring
+#+end_src
+
+Now, we are ready to run one of the llm-d services. We will use
 "Inference Scheduling" as our chosen example.
 
-Run this command in the directory where you cloned llm-d.
+The default configuration uses a large model and assumes the
+availability of several GPU cores. I used an updated yaml file that
+uses a Qwen2.5 LLM model and scales down GPU requirements from the
+default.
 #+begin_src shell
-  cd guides/inference-scheduling
+  pushd llm-d
+  diff_path="../eval_ai/ms-inference-scheduling-values.diff"
 
-  # Scale down the default GPU requirements
-  helmfile -f helmfile.yaml.gotmpl apply -n llm-d \
-  --set ms-inference-scheduling.replicaCount=1 \
-  --set ms-inference-scheduling.vllm.tensorParallelSize=1 \
-  --set ms-inference-scheduling.resources.limits."nvidia\.com/gpu"=1 \
-  --set ms-inference-scheduling.resources.requests."nvidia\.com/gpu"=1 \
-  --set ms-inference-scheduling.resources.requests.cpu=4 \
-  --set ms-inference-scheduling.resources.requests.memory=16Gi
+  # Check if the hardware patch file exists
+  if [[ -f "$diff_path" ]]; then
+      echo "Applying hardware patches..."
+      patch -p1 < "$diff_path"
+  else
+      echo "---------------------------------------------------------"
+      echo "ERROR: Patch file not found at: $diff_path"
+      echo "Please ensure the .diff file is present in the eval_ai directory."
+      echo "---------------------------------------------------------"
+      popd
+  fi
+
+  popd
 #+end_src
+
+Apply the overall helmfile now to load the inference engine.
+#+begin_src shell
+  # Define the path variable
+  INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
+
+  # Bring up pods for inference scheduling
+  helmfile -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" \
+           apply -n llm-d --quiet
+#+end_src
+
+Finally, install the httproute so that the service can be accessed
+from an external port.
+#+begin_src shell
+  # Define the path variable
+  INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
+
+  # Install HTTP routes
+  kubectl apply -f "$INFERENCE_GUIDE_PATH/httproute.yaml" -n llm-d
+#+end_src
+
+Now, setup port forwarding so that requests received on port 8080 of
+the machine get forwarded to
+
+#+begin_src shell
+  # Start the tunnel in the background
+  kubectl port-forward -n llm-d svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
+
+  # Store the Process ID (PID) so you can stop it later
+  export TUNNEL_PID=$!
+  echo "Tunnel established at http://localhost:8080 (PID: $TUNNEL_PID)"
+#+end_src
+
+Run a test prompt.
+#+begin_src shell
+  curl -i http://localhost:8080/v1/completions \
+       -H "Content-Type: application/json" \
+       -d '{
+           "model": "Qwen/Qwen2.5-1.5B-Instruct",
+           "prompt": "A short haiku on llm-d is as follows",
+           "max_tokens": 100
+           }'
+#+end_src
+
+You should see the output in JSON form including the prompt response
+and other metadata.
 
 ** Reference links
 
