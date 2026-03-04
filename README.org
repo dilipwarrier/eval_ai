@@ -88,13 +88,22 @@ configuration.
 #+begin_src shell
   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
   sudo install minikube-linux-amd64 /usr/local/bin/minikube
+#+end_src
 
-  # Update Docker to recognize the Nvidia GPU on the machine.
+Update Docker to recognize the Nvidia GPU on the machine and download
+the Docker image for llm-d. Note that this is a large download and
+will take time.
+#+begin_src shell
   sudo nvidia-ctk runtime configure --runtime=docker
   sudo systemctl restart docker
   sudo usermod -aG docker $USER && newgrp docker
+  docker pull ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
+#+end_src
 
-  # Start a Minikube node with a Docker container and access to the GPUs
+Start a Minikube node with a Docker container and access to the
+GPUs. Push the image you just downloaded from the host Docker engine
+into Minikube's Docker node.
+#+begin_src shell
   minikube start \
     --driver=docker \
     --container-runtime=docker \
@@ -102,9 +111,10 @@ configuration.
     --addons=nvidia-device-plugin \
     --memory=16384 \
     --cpus=4
+  minikube image load ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
 #+end_src
 
-If everything went well, you should see a minikube node with status
+If everything went well, you should see a Minikube node with status
 "READY" when you run the following command.
 #+begin_src shell
   kubectl get nodes
@@ -211,6 +221,13 @@ Apply the overall helmfile now to load the inference engine.
            apply -n llm-d
 #+end_src
 
+This process will take a few minutes to load the model parameters into
+RAM and get ready to serve prompt requests. If all goes well, you
+should see a running Status with the following command.
+#+begin_src shell
+   kubectl describe pod ms-inference -n llm-d | grep Status:
+#+end_src
+
 Finally, install the httproute so that the service can be accessed
 from an external port.
 #+begin_src shell
@@ -230,19 +247,21 @@ the machine get forwarded to port 80 in the Minikube deployment.
   echo "Tunnel established from http://localhost:8080 to port 80 of Minikube"
 #+end_src
 
-Run a test prompt against the completions API.
+Run a test prompt against the vllmserve chat completions API.
 #+begin_src shell
-  curl -i http://localhost:8080/v1/completions \
-       -H "Content-Type: application/json" \
-       -d '{
-           "model": "Qwen/Qwen2.5-1.5B-Instruct",
-           "prompt": "The capital of France is",
-           "max_tokens": 20
-           }'
+  curl -s http://localhost:8080/v1/chat/completions \
+       -H "Content-Type: application/json"   -d '{
+      "model": "Qwen/Qwen2.5-1.5B-Instruct",
+      "messages": [
+        {"role": "system", "content": "You are a concise academic historian."},
+        {"role": "user", "content": "Write a 100-word essay on the Enlightenment movement."}
+      ],
+      "max_tokens": 300,
+      "temperature": 0.5
+    }' | jq -r '.choices[0].message.content'
 #+end_src
 
-You should see the output in JSON form including the prompt response
-and other metadata.
+You should see the prompt response from the LLM.
 
 
 ** Clean shutdown
@@ -276,6 +295,9 @@ After a clean shutdown, run the following for a clean startup.
     --addons=nvidia-device-plugin \
     --memory=16384 \
     --cpus=4
+
+  # Load the llm-d image from the host Docker to Minikube's docker node
+  minikube image load ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
 
   # Create a new namespace
   kubectl create namespace llm-d
@@ -317,6 +339,8 @@ After a clean shutdown, run the following for a clean startup.
   echo "Tunnel established from http://localhost:8080 to port 80 of Minikube"
 #+end_src
 
+Now, you're ready to post prompts as HTTP requests to localhost:8080 and get LLM
+results.
 
 ** Reference links
 
