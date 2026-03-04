@@ -24,6 +24,7 @@ The virtual environment is now activated. You should see the text
 You must always run this step before executing any Python scripts
 in this repository, else you will encounter run-time errors.
 
+
 * Python package installation
 
 Install all the Python packages from requirements.txt as follows.
@@ -35,6 +36,7 @@ Install all the Python packages from requirements.txt as follows.
 This will install all the necessary Python packages in your virtual
 environment. Due to the large number of packages, this will take some
 time.
+
 
 * Running vllm
 
@@ -48,7 +50,10 @@ python basic_vllm.py
 
 This script will test a default LLM with some basic prompts.
 
-* Installing llm-d
+
+* Installing and running llm-d
+
+** First time installation and startup
 
 Checkout the v0.5.1-rc4 release of llm-d.
 #+begin_src shell
@@ -67,14 +72,14 @@ controller kubectl, a YAML parser yq, etc.
   # Define the gateway path variable
   CLIENT_SETUP_PATH="llm-d/guides/prereq/client-setup"
 
-  # 1. Run the script to install all dependencies
+  # Run the script to install all dependencies
   (cd "$CLIENT_SETUP_PATH" && ./install-deps.sh)
 #+end_src
 
 Once, the installation is completed, you should get a message "All
 tools installed successfully."
 
-Next, install minikube to run the Kubernetes cluster locally and set it
+Next, install and start minikube to run the Kubernetes cluster locally and set it
 up within a Docker run-time environment.
 
 Note that this step assumes a Linux OS, an AMD64 CPU, and one or more
@@ -90,10 +95,13 @@ configuration.
   sudo usermod -aG docker $USER && newgrp docker
 
   # Start a Minikube node with a Docker container and access to the GPUs
-  minikube start --driver=docker --gpus all
-
-  # Make the Nvidia GPU available as a resource to Kubernetes pods
-  minikube addons enable nvidia-device-plugin
+  minikube start \
+    --driver=docker \
+    --container-runtime=docker \
+    --gpus=all \
+    --addons=nvidia-device-plugin \
+    --memory=16384 \
+    --cpus=4
 #+end_src
 
 If everything went well, you should see a minikube node with status
@@ -104,19 +112,33 @@ If everything went well, you should see a minikube node with status
 
 Next, setup an account on huggingface.co and get an access token.
 
-Use that token in the shell command below to create a secret in the
-llm-d namespace.
+Save that token in a special file for future use and export it to the
+current shell.
 #+begin_src shell
-  export HF_TOKEN=<your_Huggingface_token>
+  export HF_TOKEN=<your_Huggingface_token> >> ~/.tokens
+
+  # Restrict permissions: 600 means Read/Write for owner only (no access for group/others)
+  chmod 600 ~/.tokens
+
+  # Append the sourcing command to your .bashrc
+  echo 'if [ -f ~/.tokens ]; then source ~/.tokens; fi' >> ~/.bashrc
+
+  # Source it now for the current session
+  source ~/.bashrc
+#+end_src
+
+Create the llm-d namespace and add a secret for the Kubernetes cluster using the token.
+#+begin_src shell
+  kubectl create namespace llm-d
+
   export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
-  kubectle create namespace llm-d
   kubectl create secret generic ${HF_TOKEN_NAME} \
       --from-literal="HF_TOKEN=${HF_TOKEN}" \
       --namespace "llm-d" \
       --dry-run=client -o yaml | kubectl apply -f -
 #+end_src
 
-Run the following commands to install the istio gateway provider.
+Install the istio gateway provider.
 #+begin_src shell
   # Define the gateway path variable
   GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
@@ -185,8 +207,8 @@ Apply the overall helmfile now to load the inference engine.
   INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
 
   # Bring up pods for inference scheduling
-  helmfile -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" \
-           apply -n llm-d --quiet
+  helmfile --quiet -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" \
+           apply -n llm-d
 #+end_src
 
 Finally, install the httproute so that the service can be accessed
@@ -222,7 +244,7 @@ Run a test prompt against the completions API.
 You should see the output in JSON form including the prompt response
 and other metadata.
 
-** Cleanup
+** Clean shutdown
 
 When you're done with your experiments, run the following to cleanup.
 #+begin_src shell
@@ -239,6 +261,61 @@ When you're done with your experiments, run the following to cleanup.
   # Release minikube node
   minikube stop
 #+end_src
+
+
+** Clean startup
+
+After a clean shutdown, run the following for a clean startup.
+#+begin_src shell
+  # Start a Minikube node with a Docker container and access to Nvidia GPUs
+  minikube start \
+    --driver=docker \
+    --container-runtime=docker \
+    --gpus=all \
+    --addons=nvidia-device-plugin \
+    --memory=16384 \
+    --cpus=4
+
+  # Create a new namespace
+  kubectl create namespace llm-d
+
+  # Create a secret for Huggingface in the namespace
+  export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
+  kubectl create secret generic ${HF_TOKEN_NAME} \
+      --from-literal="HF_TOKEN=${HF_TOKEN}" \
+      --namespace "llm-d" \
+      --dry-run=client -o yaml | kubectl apply -f -
+
+  # Create the istio gateway pods
+  GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
+
+  # Run the dependency script to create the
+  # Custom Resource Definitions (CRDs) for the gateway
+  (cd "$GATEWAY_PATH" && ./install-gateway-provider-dependencies.sh)
+
+  # Apply the helmfile using the path
+  helmfile --quiet --file "$GATEWAY_PATH/istio.helmfile.yaml" apply
+
+  # Setup Prometheus as the monitoring service
+  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+
+  # Define the Inference guide path variable
+  INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
+
+  # Bring up pods for inference scheduling
+  helmfile --quiet -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" \
+           apply -n llm-d
+
+  # Install HTTP routes
+  kubectl apply -f "$INFERENCE_GUIDE_PATH/httproute.yaml" -n llm-d
+
+  # Setup a port forwarding tunnel
+  kubectl port-forward -n llm-d svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
+
+  echo "Tunnel established from http://localhost:8080 to port 80 of Minikube"
+#+end_src
+
 
 ** Reference links
 
