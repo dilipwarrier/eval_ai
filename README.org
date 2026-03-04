@@ -1,8 +1,8 @@
 #+TITLE: Steps for running AI eval tests
 
-This directory has promptfoo-based tests for AI models.
+This directory has download instructions for software stacks for LLM AI models.
 
-The instructions below are for Linux.
+The instructions below are for a Linux OS.
 
 * Python virtual environment setup
 
@@ -33,16 +33,16 @@ Install all the Python packages from requirements.txt as follows.
   pip install -r requirements.txt
 #+end_src
 
-This will install all the necessary Python packages in your virtual
+This will install the necessary Python packages in your virtual
 environment. Due to the large number of packages, this will take some
 time.
 
 
 * Running vllm
 
-Currently, this will only work in a GPU environment.
+Currently, this will only work on a machine that has a GPU.
 
-After activating your GPU virtual environment, run the following.
+After activating your virtual environment, run the following.
 
 #+begin_src
 python basic_vllm.py
@@ -243,6 +243,7 @@ Run a test prompt against the completions API.
 
 You should see the output in JSON form including the prompt response
 and other metadata.
+
 
 ** Clean shutdown
 
