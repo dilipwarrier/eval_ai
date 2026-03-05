@@ -29,18 +29,19 @@ We plan to accomplish this ultimate goal through the following
 intermediate steps.
 
 - Step 0 :: Run aggregated inference on an Nvidia GPU
-- Step 1 :: Split across two processes on the same GPU
+- Step 0.5 :: Run aggregated inference on an Intel XPU
+- Step 1 :: Split across two processes, both running on the same Nvidia GPU
   Demonstrate that prefill can be implemented in one process on a GPU,
   the KV cache can be saved, and the decode can be implemented on a
   second process on the same GPU.
-- Step 2 :: Split across two GPUs on the same machine
-  Run the decode step on a different GPU on the same
-  machine. This demo will be run on a machine that has two GPUs from
-  two vendors on a single machine. The KV cache can be communicated
+- Step 1.5 :: Split across two processes, both running on the same Intel
+  XPU
+- Step 2 :: Split across an Nvidia GPU and an Intel XPU on the same machine
+  Run the prefill step on the Nvidia GPU and the decode step on an
+  Intel XPU on the same. The KV cache can be communicated
   through PCIe or other means.
-- Step 3 :: Split across two GPUs on two different machines
-  Run the decode step on a different GPU on a different machine. The
-  KV cache will need to be communicated through TCP/IP in this case.
+- Step 3 :: Split across an Nvidia GPU and an Intel XPU on different machines
+  The KV cache will need to be communicated through TCP/IP in this case.
 
 These intermediate steps may be accomplished through any of the following
 software stacks.
@@ -54,13 +55,13 @@ performance from using each of these approaches.
 
 * Status of prototype
 
-|----------------+--------+--------+--------+--------|
-| Software stack | Step 0 | Step 1 | Step 2 | Step 3 |
-|----------------+--------+--------+--------+--------|
-| PyTorch        | X      |        |        |        |
-| vLLM           | X      |        |        |        |
-| llm-d          | X      |        |        |        |
-|----------------+--------+--------+--------+--------|
+|----------------+--------+----------+--------+----------+--------+--------|
+| Software stack | Step 0 | Step 0.5 | Step 1 | Step 1.5 | Step 2 | Step 3 |
+|----------------+--------+----------+--------+----------+--------+--------|
+| PyTorch        | X      |          |        |          |        |        |
+| vLLM           | X      |          |        |          |        |        |
+| llm-d          | X      |          |        |          |        |        |
+|----------------+--------+----------+--------+----------+--------+--------|
 
 "X" implies that that step is complete.
 
