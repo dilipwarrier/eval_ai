@@ -228,10 +228,12 @@ Apply the helmfile now to load the inference engine.
 #+end_src
 
 This process will take a few minutes to load the model parameters into
-RAM and get ready to serve prompt requests. If all goes well, you
-should see a running Status with the following command.
+RAM and get ready to serve prompt requests.
+
+Ensure that there are 3 pods showing "1/1" in the READY column and
+"Running" in the STATUS column when you run the following command.
 #+begin_src shell
-   kubectl describe pod ms-inference -n llm-d | grep Status:
+ kubectl get pods -n llm-d
 #+end_src
 
 Finally, install the httproute so that the service can be accessed
@@ -351,6 +353,12 @@ After a clean shutdown, run the following for a clean startup.
   kubectl port-forward -n llm-d svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
 
   echo "Tunnel established from http://localhost:8080 to port 80 of Minikube"
+#+end_src
+
+Ensure that there are 3 pods showing "1/1" in the READY column and
+"Running" in the STATUS column when you run the following command.
+#+begin_src shell
+ kubectl get pods -n llm-d
 #+end_src
 
 Now, you're ready to post prompts as HTTP requests to localhost:8080 and get LLM
