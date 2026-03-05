@@ -54,6 +54,9 @@ This script will test a default LLM with some basic prompts.
 * Installing and running llm-d
 
 ** First time installation and startup
+:PROPERTIES:
+:ID:       709d8f48-25d8-45ca-aaf7-ab0bdde942f9
+:END:
 
 Checkout the v0.5.1-rc4 release of llm-d.
 #+begin_src shell
@@ -271,10 +274,14 @@ Run a test prompt against the vllmserve chat completions API.
 
 You should see the prompt response from the LLM.
 
+At this stage, you can run split_vllm.py with the "--remote" option to
+generate LLM output.
+
 
 ** Clean shutdown
 
-When you're done with your experiments, run the following to cleanup.
+When you're done with your experiments, run the following to cleanup
+and release the resources.
 #+begin_src shell
   # Kill port-forwarding process
   pkill -f "kubectl port-forward"
@@ -364,6 +371,37 @@ Ensure that there are 3 pods showing "1/1" in the READY column and
 Now, you're ready to post prompts as HTTP requests to localhost:8080 and get LLM
 results.
 
+
+** Switching between the remote and local modes of split_vllm
+
+split_vllm can operate in either a local mode or a remote mode. In
+the local mode, it starts an LLM engine from scratch. In the remote
+mode, it relies upon an LLM being served on an IP host and port.
+
+llm-d can instantiate an inference scheduler port and that will act as that
+server. To achieve this, go through the llm-d startup instructions
+above. Then, run the following.
+#+begin_src shell
+  python split_vllm.py --remote --prompt "Write a 100-word essay on the Enlightenment movement"
+#+end_src
+
+To switch to the local mode, stop port forwarding and scale down the
+llm-d deployments.
+#+begin_src shell
+  # Kill port-forwarding process
+  pkill -f "kubectl port-forward"
+
+  # Scale down deployment to 0
+  kubectl scale deployment -n llm-d --all --replicas=0
+#+end_src
+
+After that, run the following.
+#+begin_src shell
+  python split_vllm.py --prompt "Write a 100-word essay on the Enlightenment movement"
+#+end_src
+
+To switch back to remote mode, scale up the deployments again, start port forwarding, and wait for the
+inference scheduler pod to get to "1/1" READY state.
 
 ** Reference links
 
