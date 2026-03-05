@@ -110,8 +110,14 @@ into Minikube's Docker node.
     --gpus=all \
     --addons=nvidia-device-plugin \
     --memory=16384 \
+    --disk-size=50g \
     --cpus=4
-  minikube image load ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
+
+  # Save the large llm-d-cuda image locally and copy it into the minikube
+  # Docker session.
+  docker save ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4 -o llm-d-rc4.tar
+  eval $(minikube docker-env) && docker load -i llm-d-rc4.tar && eval $(minikube docker-env -u)
+  rm llm-d-rc4.tar
 #+end_src
 
 If everything went well, you should see a Minikube node with status
@@ -211,7 +217,7 @@ file accordingly.
   popd
 #+end_src
 
-Apply the overall helmfile now to load the inference engine.
+Apply the helmfile now to load the inference engine.
 #+begin_src shell
   # Define the path variable
   INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
@@ -274,9 +280,13 @@ When you're done with your experiments, run the following to cleanup.
   # Scale down deployment to 0
   kubectl scale deployment -n llm-d --all --replicas=0
 
-  # Destroy resources
+  # Destroy inference resources
   INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
-  helmfile -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" destroy -n llm-d
+  helmfile --quiet --file "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" destroy -n llm-d
+
+  # Destroy gateway resources
+  GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
+  helmfile --quiet --file "$GATEWAY_PATH/istio.helmfile.yaml" destroy
 
   # Release minikube node
   minikube stop
@@ -289,15 +299,19 @@ After a clean shutdown, run the following for a clean startup.
 #+begin_src shell
   # Start a Minikube node with a Docker container and access to Nvidia GPUs
   minikube start \
-    --driver=docker \
-    --container-runtime=docker \
-    --gpus=all \
-    --addons=nvidia-device-plugin \
-    --memory=16384 \
-    --cpus=4
+           --driver=docker \
+           --container-runtime=docker \
+           --gpus=all \
+           --addons=nvidia-device-plugin \
+           --memory=16384 \
+           --disk-size=50g \
+           --cpus=4
 
-  # Load the llm-d image from the host Docker to Minikube's docker node
-  minikube image load ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
+  # Save the large llm-d-cuda image locally and copy it into the minikube
+  # Docker session.
+  docker save ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4 -o llm-d-rc4.tar
+  eval $(minikube docker-env) && docker load -i llm-d-rc4.tar && eval $(minikube docker-env -u)
+  rm llm-d-rc4.tar
 
   # Create a new namespace
   kubectl create namespace llm-d
@@ -305,9 +319,9 @@ After a clean shutdown, run the following for a clean startup.
   # Create a secret for Huggingface in the namespace
   export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
   kubectl create secret generic ${HF_TOKEN_NAME} \
-      --from-literal="HF_TOKEN=${HF_TOKEN}" \
-      --namespace "llm-d" \
-      --dry-run=client -o yaml | kubectl apply -f -
+          --from-literal="HF_TOKEN=${HF_TOKEN}" \
+          --namespace "llm-d" \
+          --dry-run=client -o yaml | kubectl apply -f -
 
   # Create the istio gateway pods
   GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
@@ -341,6 +355,7 @@ After a clean shutdown, run the following for a clean startup.
 
 Now, you're ready to post prompts as HTTP requests to localhost:8080 and get LLM
 results.
+
 
 ** Reference links
 
