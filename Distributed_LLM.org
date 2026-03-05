@@ -53,7 +53,7 @@ In addition to demonstrating the prototype, we will also benchmark the
 performance from using each of these approaches.
 
 
-* Status of prototype
+* Status of the prototype
 
 |----------------+--------+----------+--------+----------+--------+--------|
 | Software stack | Step 0 | Step 0.5 | Step 1 | Step 1.5 | Step 2 | Step 3 |
@@ -65,6 +65,25 @@ performance from using each of these approaches.
 
 "X" implies that that step is complete.
 
+** PyTorch instructions
+
+** vLLM instructions
+
+*** Step 0
+
+#+begin_src shell
+  python split_vllm.py --prompt "Write a 100-word essay on the Enlightenment movement"
+#+end_src
+
+** llm-d instructions
+
+Follow the instructions in [[id:709d8f48-25d8-45ca-aaf7-ab0bdde942f9][llm-d installation]] to setup.
+
+*** Step 0
+
+#+begin_src shell
+  python split_vllm.py --remote --prompt "Write a 100-word essay on the Enlightenment movement"
+#+end_src
 
 * Limitations of vLLM
 
