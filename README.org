@@ -62,14 +62,11 @@ Checkout the v0.5.1-rc4 release of llm-d.
 #+begin_src shell
   tag="v0.5.1-rc.4"
   git clone https://github.com/llm-d/llm-d.git
-  pushd llm-d
-  git fetch --tags -f
-  git checkout ${tag}
-  popd
+  (cd llm-d && git fetch --tags -f && git checkout ${tag})
 #+end_src
 
-First, download the shell script to install the pre-requisites for
-llm-d as follows. This will install the Kubernetes command-line
+Download the shell script to install the pre-requisites for
+llm-d. This will install the Kubernetes command-line
 controller kubectl, a YAML parser yq, etc.
 #+begin_src shell
   # Define the gateway path variable
@@ -185,7 +182,7 @@ commands, set up Prometheus as the monitoring service.
   kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
 #+end_src
 
-Confirm that the monitoring CRDs have been created.
+Confirm that two monitoring CRDs have been created.
 #+begin_src shell
   kubectl get crds | grep monitoring
 #+end_src
