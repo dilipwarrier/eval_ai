@@ -40,7 +40,7 @@ index 181ce09..3530bcb 100644
    containers:
      - name: "vllm"
 -      image: ghcr.io/llm-d/llm-d-cuda:v0.5.0
-+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc4
++      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
        modelCommand: vllmServe
 +      env:
 +        - name: PYTORCH_CUDA_ALLOC_CONF
