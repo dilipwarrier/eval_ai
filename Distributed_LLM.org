@@ -28,20 +28,20 @@ decode stage is implemented on node 2.
 We plan to accomplish this ultimate goal through the following
 intermediate steps.
 
-- Step 0 :: Run aggregated inference on an Nvidia GPU
-- Step 0.5 :: Run aggregated inference on an Intel XPU
-- Step 1 :: Split across two processes, both running on the same Nvidia GPU
+- Step 0 :: Run prefill and decode (PD) together on an Nvidia GPU
+- Step 0.5 :: Run PD together on an Intel XPU
+- Step 1 :: Split PD processes but run both on the same Nvidia GPU
   Demonstrate that prefill can be implemented in one process on a GPU,
   the KV cache can be saved, and the decode can be implemented on a
   second process on the same GPU.
-- Step 1.5 :: Split across two processes, both running on the same Intel
-  XPU
-- Step 2 :: Split across an Nvidia GPU and an Intel XPU on the same machine
-  Run the prefill step on the Nvidia GPU and the decode step on an
-  Intel XPU on the same. The KV cache can be communicated
+- Step 1.5 :: Split PD processes but run both on the same Intel XPU
+- Step 2 :: Split PD processes across an Nvidia GPU and an Intel XPU
+  on the same machine. Run the prefill step on the Nvidia GPU and the
+  decode step on an Intel XPU on the same. The KV cache can be communicated
   through PCIe or other means.
-- Step 3 :: Split across an Nvidia GPU and an Intel XPU on different machines
-  The KV cache will need to be communicated through TCP/IP in this case.
+- Step 3 :: Split PD processes across an Nvidia GPU and an Intel XPU
+  on different machines. The KV cache will need to be communicated
+  through TCP/IP in this case.
 
 These intermediate steps may be accomplished through any of the following
 software stacks.
@@ -58,14 +58,28 @@ performance from using each of these approaches.
 |----------------+--------+----------+--------+----------+--------+--------|
 | Software stack | Step 0 | Step 0.5 | Step 1 | Step 1.5 | Step 2 | Step 3 |
 |----------------+--------+----------+--------+----------+--------+--------|
-| PyTorch        | X      |          |        |          |        |        |
+| PyTorch        | X      |          |  X     |          |  X     |        |
 | vLLM           | X      |          |        |          |        |        |
 | llm-d          | X      |          |        |          |        |        |
 |----------------+--------+----------+--------+----------+--------+--------|
 
 "X" implies that that step is complete.
 
+The following steps cover how to recreate each step. For all Python
+scripts, you must activate the virtual environment before running the scripts.
+
 ** PyTorch instructions
+
+*** Step 0
+
+
+*** Step 1
+
+Demonstrated using file copy.
+
+*** Step 2
+
+Demonstrated using file copy.
 
 ** vLLM instructions
 
