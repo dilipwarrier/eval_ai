@@ -79,11 +79,8 @@ controller kubectl, a YAML parser yq, etc.
 Once, the installation is completed, you should get a message "All
 tools installed successfully."
 
-Next, install and start minikube to run the Kubernetes cluster locally and set it
-up within a Docker run-time environment.
-
-Note that this step assumes a Linux OS, an AMD64 CPU, and one or more
-Nvidia GPUs. The commands will be different if you have a different
+Next, install minkube. Note that this step assumes a Linux OS and an
+x86 64-bit CPU. The commands will be different if you have a different
 configuration.
 #+begin_src shell
   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
