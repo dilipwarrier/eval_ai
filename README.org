@@ -89,24 +89,24 @@ configuration.
 
 Install Docker, if it isn't present already.
 #+begin_src shell
-# Add Docker's official GPG key:
-sudo apt-get update
-sudo apt-get install ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
+  # Add Docker's official GPG key
+  sudo apt-get update
+  sudo apt-get install ca-certificates curl
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-# Add the repository to Apt sources:
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  # Add the repository to apt sources
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  sudo apt-get update
+  sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 #+end_src
 
-Install nvidia-ctk if it isn't present already.
+Install nvidia-ctk, if it isn't present already.
 #+begin_src shell
   # Configure the repository
   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
@@ -123,8 +123,10 @@ the Docker image for llm-d. Note that this is a large download and
 will take time.
 #+begin_src shell
   sudo nvidia-ctk runtime configure --runtime=docker
+
   sudo systemctl restart docker
   sudo usermod -aG docker $USER && newgrp docker
+
   docker pull ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
 #+end_src
 
@@ -227,22 +229,7 @@ This assumes that you have the eval_ai and llm-d repositories
 checked out at the same level. If not, adjust the path for the diff
 file accordingly.
 #+begin_src shell
-  pushd llm-d
-  diff_path="../eval_ai/ms-inference-scheduling-values.diff"
-
-  # Check if the hardware patch file exists
-  if [[ -f "$diff_path" ]]; then
-      echo "Applying hardware patches..."
-      patch -p1 < "$diff_path"
-  else
-      echo "---------------------------------------------------------"
-      echo "ERROR: Patch file not found at: $diff_path"
-      echo "Please ensure the .diff file is present in the eval_ai directory."
-      echo "---------------------------------------------------------"
-      popd
-  fi
-
-  popd
+  (cd llm-d && patch -p1 < ../eval_ai/ms-inference-scheduling-values.diff)
 #+end_src
 
 Apply the helmfile now to load the inference engine.
@@ -300,7 +287,6 @@ You should see the prompt response from the LLM.
 At this stage, you can run split_vllm.py with the "--remote" option to
 generate LLM output.
 
-
 ** Clean shutdown
 
 When you're done with your experiments, run the following to cleanup
@@ -324,7 +310,6 @@ and release the resources.
   minikube stop
 #+end_src
 
-
 ** Clean startup
 
 After a clean shutdown, run the following for a clean startup.
@@ -345,16 +330,6 @@ After a clean shutdown, run the following for a clean startup.
   eval $(minikube docker-env) && docker load -i llm-d-rc4.tar && eval $(minikube docker-env -u)
   rm llm-d-rc4.tar
 
-  # Create a new namespace
-  kubectl create namespace llm-d
-
-  # Create a secret for Huggingface in the namespace
-  export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
-  kubectl create secret generic ${HF_TOKEN_NAME} \
-          --from-literal="HF_TOKEN=${HF_TOKEN}" \
-          --namespace "llm-d" \
-          --dry-run=client -o yaml | kubectl apply -f -
-
   # Create the istio gateway pods
   GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
 
@@ -369,19 +344,32 @@ After a clean shutdown, run the following for a clean startup.
   kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
   kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
 
-  # Define the Inference guide path variable
-  INFERENCE_GUIDE_PATH="llm-d/guides/inference-scheduling"
+  # Create a new namespace
+  export NAMESPACE=llm-d
+  kubectl create namespace ${NAMESPACE}
 
-  # Bring up pods for inference scheduling
-  helmfile --quiet -f "$INFERENCE_GUIDE_PATH/helmfile.yaml.gotmpl" \
-           apply -n llm-d
+  # Create a secret for Huggingface in the namespace
+  export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
+  kubectl create secret generic ${HF_TOKEN_NAME} \
+          --from-literal="HF_TOKEN=${HF_TOKEN}" \
+          --namespace "${NAMESPACE}" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+  # Define the guide path variable
+  GUIDE_PATH="llm-d/guides/inference-scheduling"
+
+  # Bring up pods
+  helmfile --quiet -f "$GUIDE_PATH/helmfile.yaml.gotmpl" \
+           apply -n ${NAMESPACE}
 
   # Install HTTP routes
-  kubectl apply -f "$INFERENCE_GUIDE_PATH/httproute.yaml" -n llm-d
+  kubectl apply -f "$GUIDE_PATH/httproute.yaml" -n ${NAMESPACE}
 
   # Setup a port forwarding tunnel
-  kubectl port-forward -n llm-d svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
+  kubectl port-forward -n ${NAMESPACE} svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
 #+end_src
+
+#+RESULTS:
 
 Ensure that there are 3 pods showing "1/1" in the READY column and
 "Running" in the STATUS column when you run the following command.
@@ -423,6 +411,46 @@ After that, run the following.
 
 To switch back to remote mode, scale up the deployments again, start port forwarding, and wait for the
 inference scheduler pod to get to "1/1" READY state.
+
+** PD disaggregation on one Nvidia GPU
+
+These instructions assume that minikube is up and running.
+
+#+begin_src shell
+  (cd llm-d && patch -p1 < ../eval_ai/pd-disagg-values.diff)
+
+  # Pull the routing sidecar image into the host Docker
+  docker pull ghcr.io/llm-d/llm-d-routing-sidecar:v0.5.1
+
+  # Transfer the image from the host Docker into minikube
+  # This image is small enough that the direct transfer method will work
+  minikube image load ghcr.io/llm-d/llm-d-routing-sidecar:v0.5.1
+
+  # Create a new namespace
+  kubectl create namespace llm-d-pd
+
+  # Create a secret for Huggingface in the namespace
+  export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
+  kubectl create secret generic ${HF_TOKEN_NAME} \
+          --from-literal="HF_TOKEN=${HF_TOKEN}" \
+          --namespace "llm-d-pd" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+  # Define the guide path variable
+  GUIDE_PATH="llm-d/guides/pd-disaggregation"
+
+  # Bring up pods
+  helmfile apply --quiet -f "$GUIDE_PATH/helmfile.yaml.gotmpl" \
+           -n llm-d-pd
+
+  # Install HTTP routes
+  kubectl apply -f "$GUIDE_PATH/httproute.yaml" \
+          -n llm-d-pd
+
+  # Setup a port forwarding tunnel
+  kubectl port-forward -n llm-d-pd svc/infra-pd-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
+#+end_src
+
 
 ** Reference links
 
