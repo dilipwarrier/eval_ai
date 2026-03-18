@@ -79,7 +79,7 @@ controller kubectl, a YAML parser yq, etc.
 Once, the installation is completed, you should get a message "All
 tools installed successfully."
 
-Next, install minkube. Note that this step assumes a Linux OS and an
+Next, install minikube. Note that this step assumes a Linux OS and an
 x86 64-bit CPU. The commands will be different if you have a different
 configuration.
 #+begin_src shell
@@ -142,6 +142,8 @@ into Minikube's Docker node.
     --memory=16384 \
     --disk-size=50g \
     --cpus=4
+
+  minikube addons enable nvidia-device-plugin
 
   # Save the large llm-d-cuda image locally and copy it into the minikube
   # Docker session.
@@ -268,7 +270,7 @@ the machine get forwarded to port 80 in the Minikube deployment.
   kubectl port-forward -n llm-d svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
 #+end_src
 
-Run a test prompt against the vllmserve chat completions API.
+Run a test prompt against the chat completions API.
 #+begin_src shell
   curl -s http://localhost:8080/v1/chat/completions \
        -H "Content-Type: application/json"   -d '{
@@ -314,62 +316,62 @@ and release the resources.
 
 After a clean shutdown, run the following for a clean startup.
 #+begin_src shell
-  # Start a Minikube node with a Docker container and access to Nvidia GPUs
-  minikube start \
-           --driver=docker \
-           --container-runtime=docker \
-           --gpus=all \
-           --addons=nvidia-device-plugin \
-           --memory=16384 \
-           --disk-size=50g \
-           --cpus=4
+    # Start a Minikube node with a Docker container and access to Nvidia GPUs
+    minikube start \
+             --driver=docker \
+             --container-runtime=docker \
+             --gpus=all \
+             --addons=nvidia-device-plugin \
+             --memory=16384 \
+             --disk-size=50g \
+             --cpus=4
 
-  # Save the large llm-d-cuda image locally and copy it into the minikube
-  # Docker session.
-  docker save ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4 -o llm-d-rc4.tar
-  eval $(minikube docker-env) && docker load -i llm-d-rc4.tar && eval $(minikube docker-env -u)
-  rm llm-d-rc4.tar
+    minikube addons enable nvidia-device-plugin
 
-  # Create the istio gateway pods
-  GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
+    # Save the large llm-d-cuda image locally and copy it into the minikube
+    # Docker session.
+    docker save ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4 -o llm-d-rc4.tar
+    eval $(minikube docker-env) && docker load -i llm-d-rc4.tar && eval $(minikube docker-env -u)
+    rm llm-d-rc4.tar
 
-  # Run the dependency script to create the
-  # Custom Resource Definitions (CRDs) for the gateway
-  (cd "$GATEWAY_PATH" && ./install-gateway-provider-dependencies.sh)
+    # Create the istio gateway pods
+    GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
 
-  # Apply the helmfile using the path
-  helmfile --quiet --file "$GATEWAY_PATH/istio.helmfile.yaml" apply
+    # Run the dependency script to create the
+    # Custom Resource Definitions (CRDs) for the gateway
+    (cd "$GATEWAY_PATH" && ./install-gateway-provider-dependencies.sh)
 
-  # Setup Prometheus as the monitoring service
-  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
-  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+    # Apply the helmfile using the path
+    helmfile --quiet --file "$GATEWAY_PATH/istio.helmfile.yaml" apply
 
-  # Create a new namespace
-  export NAMESPACE=llm-d
-  kubectl create namespace ${NAMESPACE}
+    # Setup Prometheus as the monitoring service
+    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
 
-  # Create a secret for Huggingface in the namespace
-  export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
-  kubectl create secret generic ${HF_TOKEN_NAME} \
-          --from-literal="HF_TOKEN=${HF_TOKEN}" \
-          --namespace "${NAMESPACE}" \
-          --dry-run=client -o yaml | kubectl apply -f -
+    # Create a new namespace
+    export NAMESPACE=llm-d
+    kubectl create namespace ${NAMESPACE}
 
-  # Define the guide path variable
-  GUIDE_PATH="llm-d/guides/inference-scheduling"
+    # Create a secret for Huggingface in the namespace
+    export HF_TOKEN_NAME=${HF_TOKEN_NAME:-llm-d-hf-token}
+    kubectl create secret generic ${HF_TOKEN_NAME} \
+            --from-literal="HF_TOKEN=${HF_TOKEN}" \
+            --namespace "${NAMESPACE}" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-  # Bring up pods
-  helmfile --quiet -f "$GUIDE_PATH/helmfile.yaml.gotmpl" \
-           apply -n ${NAMESPACE}
+    # Define the guide path variable
+    GUIDE_PATH="llm-d/guides/inference-scheduling"
 
-  # Install HTTP routes
-  kubectl apply -f "$GUIDE_PATH/httproute.yaml" -n ${NAMESPACE}
+    # Bring up pods
+    helmfile --quiet -f "$GUIDE_PATH/helmfile.yaml.gotmpl" \
+             apply -n ${NAMESPACE}
 
-  # Setup a port forwarding tunnel
-  kubectl port-forward -n ${NAMESPACE} svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
+    # Install HTTP routes
+    kubectl apply -f "$GUIDE_PATH/httproute.yaml" -n ${NAMESPACE}
+
+    # Setup a port forwarding tunnel
+    kubectl port-forward -n ${NAMESPACE} svc/infra-inference-scheduling-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
 #+end_src
-
-#+RESULTS:
 
 Ensure that there are 3 pods showing "1/1" in the READY column and
 "Running" in the STATUS column when you run the following command.
@@ -379,7 +381,6 @@ Ensure that there are 3 pods showing "1/1" in the READY column and
 
 Now, you're ready to post prompts as HTTP requests to localhost:8080 and get LLM
 results.
-
 
 ** Switching between the remote and local modes of split_vllm
 
@@ -417,6 +418,7 @@ inference scheduler pod to get to "1/1" READY state.
 These instructions assume that minikube is up and running.
 
 #+begin_src shell
+  # Scale down model size, GPU nodes, etc.
   (cd llm-d && patch -p1 < ../eval_ai/pd-disagg-values.diff)
 
   # Pull the routing sidecar image into the host Docker
@@ -425,6 +427,20 @@ These instructions assume that minikube is up and running.
   # Transfer the image from the host Docker into minikube
   # This image is small enough that the direct transfer method will work
   minikube image load ghcr.io/llm-d/llm-d-routing-sidecar:v0.5.1
+
+  # Create the istio gateway pods
+  GATEWAY_PATH="llm-d/guides/prereq/gateway-provider"
+
+  # Run the dependency script to create the
+  # Custom Resource Definitions (CRDs) for the gateway
+  (cd "$GATEWAY_PATH" && ./install-gateway-provider-dependencies.sh)
+
+  # Apply the helmfile using the path
+  helmfile --quiet --file "$GATEWAY_PATH/istio.helmfile.yaml" apply
+
+  # Setup Prometheus as the monitoring service
+  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+  kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
 
   # Create a new namespace
   kubectl create namespace llm-d-pd
@@ -451,6 +467,20 @@ These instructions assume that minikube is up and running.
   kubectl port-forward -n llm-d-pd svc/infra-pd-inference-gateway-istio 8080:80 > /dev/null 2>&1 &
 #+end_src
 
+** Current flow error
+
+#+BEGIN_SRC python :prologue "source .venv/bin/activate" :results file graphics :exports results :file eval_ai/workflow_llm_d.png :eval yes
+#+END_SRC
+
+#+RESULTS:
+[[file:eval_ai/workflow_llm_d.png]]
+
+#+begin_src python :results output
+import sys
+print(sys.executable)
+#+end_src
+
+#+RESULTS:
 
 ** Reference links
 
