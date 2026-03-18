@@ -48,7 +48,8 @@ except ImportError:
 # Basic logging configuration
 logging.basicConfig(
     level=logging.WARNING,
-    format="%(levelname)s: %(message)s"
+    format="%(levelname)s: %(message)s",
+    force=True
 )
 logging.getLogger("vllm").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
