@@ -35,13 +35,12 @@ intermediate steps.
   the KV cache can be saved, and the decode can be implemented on a
   second process on the same GPU.
 - Step 1.5 :: Split PD processes but run both on the same Intel XPU
-- Step 2 :: Split PD processes across an Nvidia GPU and an Intel XPU
-  on the same machine. Run the prefill step on the Nvidia GPU and the
+- Step 2 :: Split PD between an Nvidia GPU and an Intel XPU (same host)
+  Run the prefill step on the Nvidia GPU and the
   decode step on an Intel XPU on the same. The KV cache can be communicated
   through PCIe or other means.
-- Step 3 :: Split PD processes across an Nvidia GPU and an Intel XPU
-  on different machines. The KV cache will need to be communicated
-  through TCP/IP in this case.
+- Step 3 :: Split PD between an Nvidia GPU and an Intel XPU (different hosts)
+  The KV cache should be communicated by an appropriate protocol like RDMA.
 
 These intermediate steps may be accomplished through any of the following
 software stacks.
@@ -52,14 +51,13 @@ software stacks.
 In addition to demonstrating the prototype, we will also benchmark the
 performance from using each of these approaches.
 
-
 * Status of the prototype
 
 |----------------+--------+----------+--------+----------+--------+--------|
 | Software stack | Step 0 | Step 0.5 | Step 1 | Step 1.5 | Step 2 | Step 3 |
 |----------------+--------+----------+--------+----------+--------+--------|
-| PyTorch        | X      |          |  X     |          |  X     |        |
-| vLLM           | X      |          |        |          |        |        |
+| PyTorch        | X      |     X    |  X     |          |  X     |        |
+| vLLM           | X      |     X    |        |          |        |        |
 | llm-d          | X      |          |        |          |        |        |
 |----------------+--------+----------+--------+----------+--------+--------|
 
@@ -85,8 +83,18 @@ Demonstrated using file copy.
 
 *** Step 0
 
+Running on combined Intel XPU/Nvidia GPU machine
+
 #+begin_src shell
-  python split_vllm.py --prompt "Write a 100-word essay on the Enlightenment movement"
+  TBD
+#+end_src
+
+*** Step 0.5
+
+Running on combined Intel XPU/Nvidia GPU machine
+
+#+begin_src shell
+  TBD
 #+end_src
 
 ** llm-d instructions
