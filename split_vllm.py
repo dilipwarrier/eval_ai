@@ -275,20 +275,24 @@ class TextProcessor:
     """
 
     @staticmethod
-    def normalize(text: str) -> str:
+    def normalize(text: str, aggressive: bool = False) -> str:
         """
         Strip dataset artefacts (brackets, stray quotes, comma-joined
         list elements) and collapse blank lines.
 
         Args:
             text (str): Raw text read from a file or CLI argument.
+            aggressive (bool): When True, strip brackets and quotes
+                in addition to normalising whitespace.
+                (default: False)
 
         Returns:
             str: Cleaned, newline-separated text.
         """
-        text = text.replace("[", "").replace("]", "")
-        text = text.replace('",', "\n").replace("',", "\n")
-        text = text.replace('"', "").replace("'", "")
+        if aggressive:
+          text = text.replace("[", "").replace("]", "")
+          text = text.replace('",', "\n").replace("',", "\n")
+          text = text.replace('"', "").replace("'", "")
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         return "\n".join(lines)
 
@@ -583,6 +587,17 @@ def build_arg_parser() -> "argparse.ArgumentParser":
             "(translation fallback mode).  (default: None)"
         ),
     )
+    parser.add_argument(
+        "--aggressive-normalize",
+        action="store_true",
+        default=False,
+        help=(
+            "Strip brackets and quotes from input text in addition "
+            "to normalising whitespace.  Useful for dataset "
+            "artefacts; disable when input is structured data such "
+            "as JSON.  (default: False)"
+        ),
+    )
     return parser
 
 
@@ -614,13 +629,14 @@ class InferencePipeline:
         Returns:
             str: Normalised input text (may be empty).
         """
+        aggressive = getattr(args, "aggressive_normalize", False)
         if args.text:
             logger.debug("Using inline --text as input.")
-            return TextProcessor.normalize(args.text)
+            return TextProcessor.normalize(args.text, aggressive)
         if args.input:
             logger.debug("Reading input file: %s", args.input)
             with open(args.input, "r", encoding="utf-8") as fh:
-                return TextProcessor.normalize(fh.read())
+                return TextProcessor.normalize(fh.read(), aggressive)
         logger.debug(
             "No --input or --text supplied; "
             "prompt is treated as self-contained."
@@ -639,7 +655,7 @@ class InferencePipeline:
           3. Build the final prompt.
           4. Tokenise and set sampling parameters.
           5. Run PREFILL then DECODE phases.
-          6. Clean model output.
+          6. Clean model output via tokenizer.
           7. Write output to disk.
           8. Print profiling table.
 
