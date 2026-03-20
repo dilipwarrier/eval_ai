@@ -91,17 +91,6 @@ LANGUAGE_MAP = {
     "ru": "Russian",
 }
 
-# Tokens / strings that indicate garbage model output to be stripped.
-GARBAGE_MARKERS = [
-    "assistant",
-    "user",
-    "<|im_start|>",
-    "<|im_end|>",
-    "<|endoftext|>",
-    "{}",
-    "Translate the following",
-]
-
 
 # ================================================================== #
 #  Data classes                                                       #
@@ -271,6 +260,7 @@ class EngineManager:
         """Delete the engine and free GPU memory."""
         del self.engine
         gc.collect()
+        torch.cuda.empty_cache()
         logger.debug("Engine shut down and memory freed.")
 
 
@@ -303,7 +293,7 @@ class TextProcessor:
         return "\n".join(lines)
 
     @staticmethod
-    def clean_output(text: str) -> str:
+    def clean_output(text: str, tokenizer) -> str:
         """
         Remove known garbage tokens and stray role markers that some
         models append to their output.
@@ -314,12 +304,12 @@ class TextProcessor:
         Returns:
             str: Cleaned generated text.
         """
-        for marker in GARBAGE_MARKERS:
-            if marker in text:
-                text = text.split(marker)[0]
-        if "Je suis desole" in text:
-            text = text.split("Je suis desole")[0]
-        return text.strip()
+
+        token_ids=tokenizer.encode(text, add_special_tokens=False)
+        cleaned=tokenizer.decode(
+          token_ids, skip_special_tokens=True
+        )
+        return cleaned.strip()
 
 
 # ================================================================== #
@@ -695,7 +685,7 @@ class InferencePipeline:
         )
 
         # ---- Post-processing -------------------------------------- #
-        clean_text = TextProcessor.clean_output(output_text)
+        clean_text = TextProcessor.clean_output(output_text, tokenizer)
 
         # ---- Save output ------------------------------------------ #
         with open(args.output, "w", encoding="utf-8") as fh:
