@@ -452,6 +452,10 @@ class ProfilerCLI:
             help="Input text to process"
         )
         group_inf.add_argument(
+            "--prompt-file", type=str, metavar="PATH",
+            help="Path to a file whose content will be appended to the prompt"
+        )
+        group_inf.add_argument(
             "--save-output", type=str, metavar="PATH",
             help="Save the generated text to a specific file"
         )
@@ -477,6 +481,17 @@ class ProfilerCLI:
         )
 
         args = parser.parse_args()
+
+        # Update: Load content from prompt-file if provided
+        if args.prompt_file:
+            if not os.path.exists(args.prompt_file):
+                logging.error("Prompt file not found: %s", args.prompt_file)
+                sys.exit(1)
+            with open(args.prompt_file, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+                # Append file content to the command-line prompt
+                args.prompt = f"{args.prompt}\n\n{file_content}"
+
         res = call_api(args.prompt, {"config": vars(args)}, {})
 
         if args.json:
