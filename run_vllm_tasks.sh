@@ -1,12 +1,11 @@
 #!/bin/bash
 # DESCRIPTION:
-# This script automates three LLM benchmarking tasks:
-# 1. Translation: Downloads a French book, cleans it, and translates the first segment using vLLM.
-# 2. Summarization: Downloads an English book, cleans it, and summarizes the first segment using vLLM.
-# 3. Generation: Prompts vLLM to generate a professional essay on the Enlightenment.
-# It utilizes 'split_vllm.py' for phase profiling (Prefill/Decode) and performance tracking.
-# All stdout and stderr for each task are captured in individual log files with the 'autogen_' prefix.
-# Performance timings for each sub-task are printed to the console.
+# This script automates LLM benchmarking tasks:
+# 0. Quick Test: Pre-loads the model and verifies the environment.
+# 1. Translation: Translates a segment of a French book.
+# 2. Summarization: Summarizes a segment of an English book.
+# 3. Generation: Generates an essay on the Enlightenment.
+# It saves all outputs, logs, and machine hardware configuration to a timestamped sub-directory.
 
 # ==========================================
 # CONFIGURATION VARIABLES
@@ -15,29 +14,61 @@
 # Model Configuration
 MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
 
-# Task 1: Translation Settings
+# Directory Setup
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+RESULTS_DIR="autogen_${TIMESTAMP}"
+mkdir -p "$RESULTS_DIR"
+
+# File Paths (Stored inside the results directory)
+machine_config_log="${RESULTS_DIR}/machine_config.log"
+quick_test_stdout_log="${RESULTS_DIR}/quick_test_stdout.log"
+quick_test_stderr_log="${RESULTS_DIR}/quick_test_stderr.log"
+
+translation_input="${RESULTS_DIR}/translation_input.txt"
+translation_output="${RESULTS_DIR}/translation_output.txt"
+translation_stdout="${RESULTS_DIR}/translation_stdout.log"
+translation_stderr="${RESULTS_DIR}/translation_stderr.log"
+
+summarization_input="${RESULTS_DIR}/summarization_input.txt"
+summarization_output="${RESULTS_DIR}/summarization_output.txt"
+summarization_stdout="${RESULTS_DIR}/summarization_stdout.log"
+summarization_stderr="${RESULTS_DIR}/summarization_stderr.log"
+
+generation_output="${RESULTS_DIR}/generation_output.txt"
+generation_stdout="${RESULTS_DIR}/generation_stdout.log"
+generation_stderr="${RESULTS_DIR}/generation_stderr.log"
+
+# Task Settings
 num_words_for_translation=1000
-translation_task_input_filename="autogen_translation_input.txt"
-translation_task_output_filename="autogen_translation_output.txt"
-translation_stdout_log="autogen_translation_stdout.log"
-translation_stderr_log="autogen_translation_stderr.log"
-
-# Task 2: Summarization Settings
 num_words_for_summarization=1000
-summarization_task_input_filename="autogen_summarization_input.txt"
-summarization_task_output_filename="autogen_summarization_output.txt"
-summarization_stdout_log="autogen_summarization_stdout.log"
-summarization_stderr_log="autogen_summarization_stderr.log"
-
-# Task 3: Generation Settings
 num_words_for_generation=500
-generation_task_output_filename="autogen_generation_output.txt"
-generation_stdout_log="autogen_generation_stdout.log"
-generation_stderr_log="autogen_generation_stderr.log"
 
 # URLs
 FRENCH_URL="https://www.gutenberg.org/cache/epub/11450/pg11450.txt"
 ENGLISH_URL="https://www.gutenberg.org/files/1661/1661-0.txt"
+
+# ==========================================
+# STEP: SAVE MACHINE CONFIGURATION
+# ==========================================
+echo "Saving machine configuration to $machine_config_log..."
+{
+    echo "=== System Timestamp: $(date) ==="
+    echo ""
+    echo "--- CPU Information ---"
+    lscpu | grep -E "Model name|Socket\(s\)|Core\(s\) per socket|Thread\(s\) per core"
+
+    echo ""
+    echo "--- CPU RAM Information ---"
+    free -h | grep -E "Mem:|Total"
+
+    echo ""
+    echo "--- GPU & VRAM Information ---"
+    if command -v nvidia-smi &> /dev/null; then
+        nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+    else
+        echo "Nvidia GPU driver not detected."
+    fi
+} > "$machine_config_log"
 
 # ==========================================
 # HELPER FUNCTION: Fetch & Extract Words
@@ -46,14 +77,12 @@ fetch_and_extract() {
     local url="$1"
     local output_file="$2"
     local max_words="$3"
-    local raw_file="autogen_temp_raw_$$.txt"
+    local raw_file="${RESULTS_DIR}/temp_raw_$$.txt"
 
     local start_time=$SECONDS
-
     echo "Downloading from: $url"
     if curl -s -f -L "$url" -o "$raw_file"; then
-        echo "Download successful. Cleaning headers and extracting first $max_words words..."
-
+        echo "Cleaning headers and extracting first $max_words words..."
         sed -n '/\*\*\* START OF THE PROJECT GUTENBERG EBOOK/,/\*\*\* END OF THE PROJECT GUTENBERG EBOOK/p' "$raw_file" | sed '1d;$d' | \
         awk -v max="$max_words" '
             BEGIN { word_count = 0 }
@@ -69,9 +98,7 @@ fetch_and_extract() {
             }
         '
         rm "$raw_file"
-
         local end_time=$SECONDS
-        echo "-> Saved exactly $(wc -w < "$output_file") words to $output_file"
         echo "-> Time taken for fetch and extract: $((end_time - start_time)) seconds"
     else
         echo "Error: Failed to download from $url"
@@ -80,70 +107,77 @@ fetch_and_extract() {
 }
 
 # ==========================================
+# TASK 0: QUICK TEST (PRE-LOAD MODEL)
+# ==========================================
+echo -e "\nExecuting Task 0: Quick Test (Model: $MODEL_NAME)"
+python split_vllm.py \
+    --model "$MODEL_NAME" \
+    --prompt "Write a 100-word essay on the universe" \
+    > "$quick_test_stdout_log" 2> "$quick_test_stderr_log"
+
+exit_code=$?
+if [ $exit_code -ne 0 ]; then
+    echo "CRITICAL ERROR: Quick Test failed (Code $exit_code). Aborting tasks."
+    exit $exit_code
+fi
+echo "-> Quick Test successful!"
+
+# ==========================================
 # TASK 1: TRANSLATION
 # ==========================================
-echo ""
-echo "=========================================="
-echo "Executing Task 1: Translation (Model: $MODEL_NAME)"
-echo "=========================================="
-fetch_and_extract "$FRENCH_URL" "$translation_task_input_filename" "$num_words_for_translation"
+echo -e "\nExecuting Task 1: Translation"
+fetch_and_extract "$FRENCH_URL" "$translation_input" "$num_words_for_translation"
 
 task1_start=$SECONDS
 python split_vllm.py \
     --model "$MODEL_NAME" \
-    --prompt "Act as a professional French-to-English translator. Translate the following text into natural, fluent English. Maintain the original tone and do not add conversational filler. French Text:" \
-    --prompt-file "$translation_task_input_filename" \
-    --save-output "$translation_task_output_filename" \
-    > "$translation_stdout_log" 2> "$translation_stderr_log"
-task1_end=$SECONDS
+    --prompt "Act as a professional French-to-English translator. Translate the following text: " \
+    --prompt-file "$translation_input" \
+    --save-output "$translation_output" \
+    > "$translation_stdout" 2> "$translation_stderr"
 
-echo "-> Task 1 Complete! Output saved to: $translation_task_output_filename"
-echo "-> Time taken for translation inference: $((task1_end - task1_start)) seconds"
-echo "-> Logs: $translation_stdout_log, $translation_stderr_log"
+exit_code=$?
+task1_end=$SECONDS
+[ $exit_code -ne 0 ] && echo "ERROR: Task 1 failed (Code $exit_code)." || echo "-> Task 1 Complete."
+echo "-> Inference time: $((task1_end - task1_start)) seconds"
 
 # ==========================================
 # TASK 2: SUMMARIZATION
 # ==========================================
-echo ""
-echo "=========================================="
-echo "Executing Task 2: Summarization (Model: $MODEL_NAME)"
-echo "=========================================="
-fetch_and_extract "$ENGLISH_URL" "$summarization_task_input_filename" "$num_words_for_summarization"
+echo -e "\nExecuting Task 2: Summarization"
+fetch_and_extract "$ENGLISH_URL" "$summarization_input" "$num_words_for_summarization"
 
 task2_start=$SECONDS
 python split_vllm.py \
     --model "$MODEL_NAME" \
-    --prompt "Summarize the following English text into a concise summary. Capture the main themes, plot points, and tone of the narrative. English Text:" \
-    --prompt-file "$summarization_task_input_filename" \
-    --save-output "$summarization_task_output_filename" \
-    > "$summarization_stdout_log" 2> "$summarization_stderr_log"
-task2_end=$SECONDS
+    --prompt "Summarize the following English text: " \
+    --prompt-file "$summarization_input" \
+    --save-output "$summarization_output" \
+    > "$summarization_stdout" 2> "$summarization_stderr"
 
-echo "-> Task 2 Complete! Output saved to: $summarization_task_output_filename"
-echo "-> Time taken for summarization inference: $((task2_end - task2_start)) seconds"
-echo "-> Logs: $summarization_stdout_log, $summarization_stderr_log"
+exit_code=$?
+task2_end=$SECONDS
+[ $exit_code -ne 0 ] && echo "ERROR: Task 2 failed (Code $exit_code)." || echo "-> Task 2 Complete."
+echo "-> Inference time: $((task2_end - task2_start)) seconds"
 
 # ==========================================
 # TASK 3: GENERATION
 # ==========================================
-echo ""
-echo "=========================================="
-echo "Executing Task 3: Generation (Model: $MODEL_NAME)"
-echo "=========================================="
-
+echo -e "\nExecuting Task 3: Generation"
 GENERATION_PROMPT="System: You are a professional essay writer. User: Write a $num_words_for_generation word essay on the Enlightenment movement."
 
-echo "Sending generation prompt to vLLM..."
 task3_start=$SECONDS
 python split_vllm.py \
     --model "$MODEL_NAME" \
     --prompt "$GENERATION_PROMPT" \
-    --save-output "$generation_task_output_filename" \
-    > "$generation_stdout_log" 2> "$generation_stderr_log"
-task3_end=$SECONDS
+    --save-output "$generation_output" \
+    > "$generation_stdout" 2> "$generation_stderr"
 
-echo "-> Task 3 Complete! Output saved to: $generation_task_output_filename"
-echo "-> Time taken for generation: $((task3_end - task3_start)) seconds"
-echo "-> Logs: $generation_stdout_log, $generation_stderr_log"
-echo "All tasks finished successfully."
+exit_code=$?
+task3_end=$SECONDS
+[ $exit_code -ne 0 ] && echo "ERROR: Task 3 failed (Code $exit_code)." || echo "-> Task 3 Complete."
+echo "-> Inference time: $((task3_end - task3_start)) seconds"
+
+echo -e "\n=========================================="
+echo "All tasks finished. Results saved in: $RESULTS_DIR"
 echo "=========================================="
