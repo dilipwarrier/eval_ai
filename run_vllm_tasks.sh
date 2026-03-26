@@ -11,7 +11,8 @@
 # CONFIGURATION VARIABLES
 # ==========================================
 
-# Model Configuration
+# Number of iterations for tasks
+NUM_ITERATIONS=1
 MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
 
 # Directory Setup
@@ -55,16 +56,16 @@ echo "Saving machine configuration to $machine_config_log..."
     echo "=== System Timestamp: $(date) ==="
     echo ""
     echo "--- CPU Information ---"
-    lscpu | grep -E "Model name|Socket\(s\)|Core\(s\) per socket|Thread\(s\) per core"
+    lscpu | grep -E "Model name|Socket\(s\)|Core\(s\) per socket|Thread\(s\) per core" | column -t -s ":"
 
     echo ""
     echo "--- CPU RAM Information ---"
-    free -h | grep -E "Mem:|Total"
+    free -h | grep -E "Mem:|Total" | column -t
 
     echo ""
     echo "--- GPU & VRAM Information ---"
     if command -v nvidia-smi &> /dev/null; then
-        nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+        nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader | column -t -s ","
     else
         echo "Nvidia GPU driver not detected."
     fi
@@ -107,6 +108,12 @@ fetch_and_extract() {
 }
 
 # ==========================================
+# SETUP VIRTUAL ENVIRONMENT
+# ==========================================
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# ==========================================
 # TASK 0: QUICK TEST (PRE-LOAD MODEL)
 # ==========================================
 echo -e "\nExecuting Task 0: Quick Test (Model: $MODEL_NAME)"
@@ -122,61 +129,86 @@ if [ $exit_code -ne 0 ]; then
 fi
 echo "-> Quick Test successful!"
 
-# ==========================================
-# TASK 1: TRANSLATION
-# ==========================================
-echo -e "\nExecuting Task 1: Translation"
+# Fetch and extract data once before the loop
 fetch_and_extract "$FRENCH_URL" "$translation_input" "$num_words_for_translation"
-
-task1_start=$SECONDS
-python split_vllm.py \
-    --model "$MODEL_NAME" \
-    --prompt "Act as a professional French-to-English translator. Translate the following text: " \
-    --prompt-file "$translation_input" \
-    --save-output "$translation_output" \
-    > "$translation_stdout" 2> "$translation_stderr"
-
-exit_code=$?
-task1_end=$SECONDS
-[ $exit_code -ne 0 ] && echo "ERROR: Task 1 failed (Code $exit_code)." || echo "-> Task 1 Complete."
-echo "-> Inference time: $((task1_end - task1_start)) seconds"
-
-# ==========================================
-# TASK 2: SUMMARIZATION
-# ==========================================
-echo -e "\nExecuting Task 2: Summarization"
 fetch_and_extract "$ENGLISH_URL" "$summarization_input" "$num_words_for_summarization"
 
-task2_start=$SECONDS
-python split_vllm.py \
-    --model "$MODEL_NAME" \
-    --prompt "Summarize the following English text: " \
-    --prompt-file "$summarization_input" \
-    --save-output "$summarization_output" \
-    > "$summarization_stdout" 2> "$summarization_stderr"
+for ((i=1; i<=NUM_ITERATIONS; i++)); do
+    echo -e "\nIteration $i of $NUM_ITERATIONS"
 
-exit_code=$?
-task2_end=$SECONDS
-[ $exit_code -ne 0 ] && echo "ERROR: Task 2 failed (Code $exit_code)." || echo "-> Task 2 Complete."
-echo "-> Inference time: $((task2_end - task2_start)) seconds"
+    # Prepare file paths for this iteration
+    translation_input_run="${RESULTS_DIR}/translation_input_run${i}.txt"
+    translation_output_run="${RESULTS_DIR}/translation_output_run${i}.txt"
+    translation_stdout_run="${RESULTS_DIR}/translation_stdout_run${i}.log"
+    translation_stderr_run="${RESULTS_DIR}/translation_stderr_run${i}.log"
 
-# ==========================================
-# TASK 3: GENERATION
-# ==========================================
-echo -e "\nExecuting Task 3: Generation"
-GENERATION_PROMPT="System: You are a professional essay writer. User: Write a $num_words_for_generation word essay on the Enlightenment movement."
+    summarization_input_run="${RESULTS_DIR}/summarization_input_run${i}.txt"
+    summarization_output_run="${RESULTS_DIR}/summarization_output_run${i}.txt"
+    summarization_stdout_run="${RESULTS_DIR}/summarization_stdout_run${i}.log"
+    summarization_stderr_run="${RESULTS_DIR}/summarization_stderr_run${i}.log"
 
-task3_start=$SECONDS
-python split_vllm.py \
-    --model "$MODEL_NAME" \
-    --prompt "$GENERATION_PROMPT" \
-    --save-output "$generation_output" \
-    > "$generation_stdout" 2> "$generation_stderr"
+    generation_output_run="${RESULTS_DIR}/generation_output_run${i}.txt"
+    generation_stdout_run="${RESULTS_DIR}/generation_stdout_run${i}.log"
+    generation_stderr_run="${RESULTS_DIR}/generation_stderr_run${i}.log"
 
-exit_code=$?
-task3_end=$SECONDS
-[ $exit_code -ne 0 ] && echo "ERROR: Task 3 failed (Code $exit_code)." || echo "-> Task 3 Complete."
-echo "-> Inference time: $((task3_end - task3_start)) seconds"
+    # Copy the input files for this iteration
+    cp "$translation_input" "$translation_input_run"
+    cp "$summarization_input" "$summarization_input_run"
+
+    # ==========================================
+    # TASK 1: TRANSLATION
+    # ==========================================
+    echo -e "\nExecuting Task 1: Translation"
+
+    task1_start=$SECONDS
+    python split_vllm.py \
+        --model "$MODEL_NAME" \
+        --prompt "Act as a professional French-to-English translator. Translate the following text: " \
+        --prompt-file "$translation_input_run" \
+        --save-output "$translation_output_run" \
+        > "$translation_stdout_run" 2> "$translation_stderr_run"
+
+    exit_code=$?
+    task1_end=$SECONDS
+    [ $exit_code -ne 0 ] && echo "ERROR: Task 1 failed (Code $exit_code)." || echo "-> Task 1 Complete."
+    echo "-> Inference time: $((task1_end - task1_start)) seconds"
+
+    # ==========================================
+    # TASK 2: SUMMARIZATION
+    # ==========================================
+    echo -e "\nExecuting Task 2: Summarization"
+
+    task2_start=$SECONDS
+    python split_vllm.py \
+        --model "$MODEL_NAME" \
+        --prompt "Summarize the following English text: " \
+        --prompt-file "$summarization_input_run" \
+        --save-output "$summarization_output_run" \
+        > "$summarization_stdout_run" 2> "$summarization_stderr_run"
+
+    exit_code=$?
+    task2_end=$SECONDS
+    [ $exit_code -ne 0 ] && echo "ERROR: Task 2 failed (Code $exit_code)." || echo "-> Task 2 Complete."
+    echo "-> Inference time: $((task2_end - task2_start)) seconds"
+
+    # ==========================================
+    # TASK 3: GENERATION
+    # ==========================================
+    echo -e "\nExecuting Task 3: Generation"
+    GENERATION_PROMPT="System: You are a professional essay writer. User: Write a $num_words_for_generation word essay on the Enlightenment movement."
+
+    task3_start=$SECONDS
+    python split_vllm.py \
+        --model "$MODEL_NAME" \
+        --prompt "$GENERATION_PROMPT" \
+        --save-output "$generation_output_run" \
+        > "$generation_stdout_run" 2> "$generation_stderr_run"
+
+    exit_code=$?
+    task3_end=$SECONDS
+    [ $exit_code -ne 0 ] && echo "ERROR: Task 3 failed (Code $exit_code)." || echo "-> Task 3 Complete."
+    echo "-> Inference time: $((task3_end - task3_start)) seconds"
+done
 
 echo -e "\n=========================================="
 echo "All tasks finished. Results saved in: $RESULTS_DIR"
