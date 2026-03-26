@@ -11,8 +11,28 @@
 # CONFIGURATION VARIABLES
 # ==========================================
 
-# Number of iterations for tasks
+# Default number of iterations for tasks
 NUM_ITERATIONS=1
+
+# Function to display help message
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  -n, --num_iter NUM   Number of iterations for tasks (default: 1)"
+    echo "  -h, --help           Display this help message"
+    exit 0
+}
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -n|--num_iter) NUM_ITERATIONS="$2"; shift ;;
+        -h|--help) show_help ;;
+        *) echo "Unknown parameter passed: $1"; show_help ;;
+    esac
+    shift
+done
 MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
 
 # Directory Setup
