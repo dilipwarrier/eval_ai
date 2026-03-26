@@ -41,7 +41,8 @@ RESULTS_DIR="autogen_${TIMESTAMP}"
 mkdir -p "$RESULTS_DIR"
 
 # File Paths (Stored inside the results directory)
-machine_config_log="${RESULTS_DIR}/machine_config.log"
+top_level_stdout_log="${RESULTS_DIR}/top_level_stdout.log"
+top_level_stderr_log="${RESULTS_DIR}/top_level_stderr.log"
 quick_test_stdout_log="${RESULTS_DIR}/quick_test_stdout.log"
 quick_test_stderr_log="${RESULTS_DIR}/quick_test_stderr.log"
 
@@ -71,7 +72,7 @@ ENGLISH_URL="https://www.gutenberg.org/files/1661/1661-0.txt"
 # ==========================================
 # STEP: SAVE MACHINE CONFIGURATION
 # ==========================================
-echo "Saving machine configuration to $machine_config_log..."
+echo "Saving machine configuration..." | tee -a "$top_level_stdout_log"
 {
     echo "=== System Timestamp: $(date) ==="
     echo ""
@@ -89,7 +90,7 @@ echo "Saving machine configuration to $machine_config_log..."
     else
         echo "Nvidia GPU driver not detected."
     fi
-} > "$machine_config_log"
+} >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
 
 # ==========================================
 # HELPER FUNCTION: Fetch & Extract Words
@@ -130,8 +131,15 @@ fetch_and_extract() {
 # ==========================================
 # SETUP VIRTUAL ENVIRONMENT
 # ==========================================
-source .venv/bin/activate
-pip install -r requirements.txt
+# Setup virtual environment
+if [ ! -d ".venv" ]; then
+    echo "Creating virtual environment..." | tee -a "$top_level_stdout_log"
+    python3 -m venv .venv
+fi
+
+echo "Activating virtual environment and installing requirements..." | tee -a "$top_level_stdout_log"
+source .venv/bin/activate >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
+pip install -r requirements.txt >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
 
 # ==========================================
 # TASK 0: QUICK TEST (PRE-LOAD MODEL)
@@ -153,6 +161,11 @@ echo "-> Quick Test successful!"
 fetch_and_extract "$FRENCH_URL" "$translation_input" "$num_words_for_translation"
 fetch_and_extract "$ENGLISH_URL" "$summarization_input" "$num_words_for_summarization"
 
+# Arrays to store file paths for each run
+translation_stdout_runs=()
+summarization_stdout_runs=()
+generation_stdout_runs=()
+
 for ((i=1; i<=NUM_ITERATIONS; i++)); do
     echo -e "\nIteration $i of $NUM_ITERATIONS"
 
@@ -170,6 +183,11 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     generation_output_run="${RESULTS_DIR}/generation_output_run${i}.txt"
     generation_stdout_run="${RESULTS_DIR}/generation_stdout_run${i}.log"
     generation_stderr_run="${RESULTS_DIR}/generation_stderr_run${i}.log"
+
+    # Store stdout file paths in arrays
+    translation_stdout_runs+=("$translation_stdout_run")
+    summarization_stdout_runs+=("$summarization_stdout_run")
+    generation_stdout_runs+=("$generation_stdout_run")
 
     # Copy the input files for this iteration
     cp "$translation_input" "$translation_input_run"
@@ -230,6 +248,38 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     echo "-> Inference time: $((task3_end - task3_start)) seconds"
 done
 
-echo -e "\n=========================================="
+# ==========================================
+# GENERATE REPORT
+# ==========================================
+echo -e "\nGenerating report..."
+
+report_file="${RESULTS_DIR}/top_level_stats.txt"
+echo -e "Task\tRun\tPhase\tTime (s)\tInput tokens\tOutput tokens" > "$report_file"
+
+parse_and_append_stats() {
+    local task_name="$1"
+    local run_number="$2"
+    local output_file="$3"
+
+    # Extract relevant lines and append to report
+    grep -E "Initialization|Prefill|Decode" "$output_file" | while read -r line; do
+        phase=$(echo "$line" | awk '{print $1}')
+        time=$(echo "$line" | awk '{print $3}')
+        input_tokens=$(echo "$line" | awk '{print $5}')
+        output_tokens=$(echo "$line" | awk '{print $7}')
+        echo -e "${task_name}\t${run_number}\t${phase}\t${time}\t${input_tokens}\t${output_tokens}" >> "$report_file"
+    done
+}
+
+for ((i=1; i<=NUM_ITERATIONS; i++)); do
+    parse_and_append_stats "Translation" "$i" "${translation_stdout_runs[$i-1]}"
+    parse_and_append_stats "Summarization" "$i" "${summarization_stdout_runs[$i-1]}"
+    parse_and_append_stats "Generation" "$i" "${generation_stdout_runs[$i-1]}"
+done
+
+# Sort the report by Task, Run, and Phase
+sort -k1,1 -k2,2n -k3,3 "$report_file" -o "$report_file"
+
+echo "Report generated: $report_file"
 echo "All tasks finished. Results saved in: $RESULTS_DIR"
 echo "=========================================="
