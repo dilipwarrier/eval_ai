@@ -277,8 +277,11 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     parse_and_append_stats "Generation" "$i" "${generation_stdout_runs[$i-1]}"
 done
 
-# Sort the report by Task, Run, and Phase
-sort -k1,1 -k2,2n -k3,3 "$report_file" -o "$report_file"
+# Sort the report by Task, Run, and Phase, keeping the header at the top
+{
+    head -n 1 "$report_file"
+    tail -n +2 "$report_file" | sort -k1,1 -k2,2n -k3,3
+} > "${report_file}.tmp" && mv "${report_file}.tmp" "$report_file"
 
 echo "Report generated: $report_file"
 echo "All tasks finished. Results saved in: $RESULTS_DIR"
