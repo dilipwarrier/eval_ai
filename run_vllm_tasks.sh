@@ -101,7 +101,14 @@ echo "Saving machine configuration..." | tee -a "$top_level_stdout_log"
         fi
     elif [ "$PROCESSOR_TYPE" == "Intel" ]; then
         if command -v clinfo &> /dev/null; then
-            clinfo --raw | grep -E "Device Name|Global Memory size" | column -t -s ":"
+            clinfo --raw | awk '
+                /CL_DEVICE_NAME/ { device_name = $2 }
+                /CL_DEVICE_GLOBAL_MEM_SIZE/ { mem_size = $2 }
+                END {
+                    print "Device Name:", device_name
+                    print "Global Memory Size (bytes):", mem_size
+                }
+            '
         else
             echo "Intel XPU driver not detected."
         fi
