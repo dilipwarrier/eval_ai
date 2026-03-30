@@ -11,16 +11,23 @@
 # CONFIGURATION VARIABLES
 # ==========================================
 
+# Ensure the virtual environment is deactivated on script exit
+trap "deactivate" EXIT
+
 # Default number of iterations for tasks
 NUM_ITERATIONS=1
+
+# Default processor type
+PROCESSOR_TYPE="Nvidia"
 
 # Function to display help message
 show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  -n, --num_iter NUM   Number of iterations for tasks (default: 1)"
-    echo "  -h, --help           Display this help message"
+    echo "  -n, --num_iter NUM       Number of iterations for tasks (default: 1)"
+    echo "  -p, --processor_type TYPE Processor type: Intel or Nvidia (default: Nvidia)"
+    echo "  -h, --help               Display this help message"
     exit 0
 }
 
@@ -28,6 +35,7 @@ show_help() {
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -n|--num_iter) NUM_ITERATIONS="$2"; shift ;;
+        -p|--processor_type) PROCESSOR_TYPE="$(echo "$2" | tr '[:upper:]' '[:lower:]' | sed 's/.*/\u&/')" ; shift ;;
         -h|--help) show_help ;;
         *) echo "Unknown parameter passed: $1"; show_help ;;
     esac
@@ -85,10 +93,18 @@ echo "Saving machine configuration..." | tee -a "$top_level_stdout_log"
 
     echo ""
     echo "--- GPU & VRAM Information ---"
-    if command -v nvidia-smi &> /dev/null; then
-        nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader | column -t -s ","
-    else
-        echo "Nvidia GPU driver not detected."
+    if [ "$PROCESSOR_TYPE" == "Nvidia" ]; then
+        if command -v nvidia-smi &> /dev/null; then
+            nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader | column -t -s ","
+        else
+            echo "Nvidia GPU driver not detected."
+        fi
+    elif [ "$PROCESSOR_TYPE" == "Intel" ]; then
+        if command -v clinfo &> /dev/null; then
+            clinfo --raw | grep -E "Device Name|Global Memory size" | column -t -s ":"
+        else
+            echo "Intel XPU driver not detected."
+        fi
     fi
 } >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
 
@@ -131,15 +147,20 @@ fetch_and_extract() {
 # ==========================================
 # SETUP VIRTUAL ENVIRONMENT
 # ==========================================
-# Setup virtual environment
-if [ ! -d ".venv" ]; then
-    echo "Creating virtual environment..." | tee -a "$top_level_stdout_log"
-    python3 -m venv .venv
-fi
+if [ "$PROCESSOR_TYPE" == "Nvidia" ]; then
+    if [ ! -d ".venv" ]; then
+        echo "Creating virtual environment for Nvidia GPU..." | tee -a "$top_level_stdout_log"
+        python3 -m venv .venv
+    fi
 
-echo "Activating virtual environment and installing requirements..." | tee -a "$top_level_stdout_log"
-source .venv/bin/activate >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
-pip install -r requirements.txt >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
+    echo "Setting up virtual environment for Nvidia GPU..." | tee -a "$top_level_stdout_log"
+    source .venv/bin/activate >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
+    pip install -r requirements.txt >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
+
+elif [ "$PROCESSOR_TYPE" == "Intel" ]; then
+    echo "Setting up environment for Intel XPU..." | tee -a "$top_level_stdout_log"
+    source /home/lyptusadmin/vllm-xpu-env/bin/activate
+fi
 
 # ==========================================
 # TASK 0: QUICK TEST (PRE-LOAD MODEL)
@@ -148,6 +169,7 @@ echo -e "\nExecuting Task 0: Quick Test (Model: $MODEL_NAME)"
 python split_vllm.py \
     --model "$MODEL_NAME" \
     --prompt "Write a 100-word essay on the universe" \
+    --enforce-eager \
     > "$quick_test_stdout_log" 2> "$quick_test_stderr_log"
 
 exit_code=$?
@@ -204,6 +226,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
         --prompt "Act as a professional French-to-English translator. Translate the following text: " \
         --prompt-file "$translation_input_run" \
         --save-output "$translation_output_run" \
+        --enforce-eager \
         > "$translation_stdout_run" 2> "$translation_stderr_run"
 
     exit_code=$?
@@ -222,6 +245,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
         --prompt "Summarize the following English text: " \
         --prompt-file "$summarization_input_run" \
         --save-output "$summarization_output_run" \
+        --enforce-eager \
         > "$summarization_stdout_run" 2> "$summarization_stderr_run"
 
     exit_code=$?
@@ -240,6 +264,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
         --model "$MODEL_NAME" \
         --prompt "$GENERATION_PROMPT" \
         --save-output "$generation_output_run" \
+        --enforce-eager \
         > "$generation_stdout_run" 2> "$generation_stderr_run"
 
     exit_code=$?
