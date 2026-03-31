@@ -12,7 +12,7 @@
 # ==========================================
 
 # Ensure the virtual environment is deactivated on script exit
-trap "deactivate" EXIT
+trap "[[ -n \"$VIRTUAL_ENV\" ]] && deactivate" EXIT
 
 # Default number of iterations for tasks
 NUM_ITERATIONS=1
@@ -153,7 +153,7 @@ if [ "$PROCESSOR_TYPE" == "Nvidia" ]; then
 
 elif [ "$PROCESSOR_TYPE" == "Intel" ]; then
     echo "Setting up environment for Intel XPU..." | tee -a "$top_level_stdout_log"
-    source /home/lyptusadmin/vllm-xpu-env/bin/activate
+    source /home/lyptusadmin/vllm-xpu-env/bin/activate >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
 fi
 
 # ==========================================
