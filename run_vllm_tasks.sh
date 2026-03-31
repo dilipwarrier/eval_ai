@@ -85,32 +85,19 @@ echo "Saving machine configuration..." | tee -a "$top_level_stdout_log"
     echo "=== System Timestamp: $(date) ==="
     echo ""
     echo "--- CPU Information ---"
-    lscpu | grep -E "Model name|Socket\(s\)|Core\(s\) per socket|Thread\(s\) per core" | column -t -s ":"
+    lscpu | grep -E "Model name" | column -t -s ":"
 
     echo ""
     echo "--- CPU RAM Information ---"
-    free -h | grep -E "Mem:|Total" | column -t
+    free -h | grep -E -i "mem:|total" | column -t
 
-    echo ""
-    echo "--- GPU & VRAM Information ---"
     if [ "$PROCESSOR_TYPE" == "Nvidia" ]; then
+        echo ""
+        echo "--- NVIDIA GPU & VRAM Information ---"
         if command -v nvidia-smi &> /dev/null; then
             nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader | column -t -s ","
         else
             echo "Nvidia GPU driver not detected."
-        fi
-    elif [ "$PROCESSOR_TYPE" == "Intel" ]; then
-        if command -v clinfo &> /dev/null; then
-            clinfo --raw | awk '
-                /CL_DEVICE_NAME/ { device_name = $2 }
-                /CL_DEVICE_GLOBAL_MEM_SIZE/ { mem_size = $2 }
-                END {
-                    print "Device Name:", device_name
-                    print "Global Memory Size (bytes):", mem_size
-                }
-            '
-        else
-            echo "Intel XPU driver not detected."
         fi
     fi
 } >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
