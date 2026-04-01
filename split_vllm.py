@@ -439,7 +439,7 @@ class ProfilerCLI:
             help="Maximum model length for the LLM"
         )
         group_eng.add_argument(
-            "--model", type=str, default="Qwen/Qwen2.5-1.5B-Instruct",
+            "--model", type=str, default="unsloth/llama-3-8b-instruct-bnb-4bit",
             help="Path or HF repo ID of the model to load"
         )
         group_eng.add_argument(
