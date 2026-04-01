@@ -200,8 +200,9 @@ def build_engine(model: str, **engine_kwargs) -> LLMEngine:
         The initialized LLMEngine.
     """
     engine_args = EngineArgs(
-        model=model, disable_log_stats=True, **engine_kwargs
-    )
+            model=model, disable_log_stats=True, **engine_kwargs
+        )
+
     return LLMEngine.from_engine_args(engine_args)
 
 
@@ -272,7 +273,7 @@ def run_phase(
 
 
 def call_api(
-    prompt: str, options: dict, context: dict # pylint: disable=unused-argument
+    prompt: str, options: dict, context: dict  # pylint: disable=unused-argument
 ) -> dict:
     """
     Interface for Promptfoo Python Provider. Non-persistent version.
@@ -301,7 +302,7 @@ def call_api(
                 file_obj.write(result["output"])
         return result
 
-    max_model_length = config.get('max_model_length', 2048)
+    max_model_len = config.get('max_model_len', 2048)
     enforce_eager = config.get('enforce_eager', False)
     gpu_util = config.get('gpu_util', 0.9)
 
@@ -309,8 +310,8 @@ def call_api(
     init_start = perf_counter()
     vllm_engine = build_engine(
         model=model_name,
+        max_model_len=max_model_len,
         gpu_memory_utilization=gpu_util,
-        max_model_length=max_model_length,
         enforce_eager=enforce_eager
     )
     init_duration = perf_counter() - init_start
@@ -434,57 +435,56 @@ class ProfilerCLI:
 
         group_eng = parser.add_argument_group("Engine Configuration")
         group_eng.add_argument(
-            "--max-model-length", type=int, default=2048,
-            help="(Optional) Maximum model length for the LLM (default: 2048)"
-        )
+            "--max-model-len", type=int, default=2048,
+            help="Maximum model length for the LLM"
         )
         group_eng.add_argument(
             "--model", type=str, default="Qwen/Qwen2.5-1.5B-Instruct",
-            help="(Optional) Path or HF repo ID of the model to load (default: Qwen/Qwen2.5-1.5B-Instruct)"
+            help="Path or HF repo ID of the model to load"
         )
         group_eng.add_argument(
             "--gpu-util", type=float, default=0.9,
-            help="(Optional) Fraction of GPU memory to reserve (default: 0.9)"
+            help="Fraction of GPU memory to reserve"
         )
         group_eng.add_argument(
             "--enforce-eager", action="store_true",
-            help="(Optional) Disable CUDA graph capturing"
+            help="Disable CUDA graph capturing"
         )
 
         group_inf = parser.add_argument_group("Inference Options")
-        default_prompt="Write a 1000 word essay on the Enlightenment movement"
+        default_prompt = "Write a 1000 word essay on the Enlightenment movement"
         group_inf.add_argument(
             "--prompt", type=str,
             default=default_prompt,
-            help="(Optional) Input text to process (default: {default_prompt})"
+            help="Input text to process"
         )
         group_inf.add_argument(
             "--prompt-file", type=str, metavar="PATH",
-            help="(Optional) Path to a file whose content will be appended to the prompt"
+            help="Path to a file whose content will be appended to the prompt"
         )
         group_inf.add_argument(
             "--save-output", type=str, metavar="PATH",
-            help="(Optional) Save the generated text to a specific file"
+            help="Save the generated text to a specific file"
         )
 
         group_rem = parser.add_argument_group("Remote Execution")
         group_rem.add_argument(
             "--remote", action="store_true",
-            help="(Optional) Route inference to a remote server"
+            help="Route inference to a remote server"
         )
         group_rem.add_argument(
             "--ip", type=str, default="localhost",
-            help="(Optional) IP address of the remote server (default: localhost)"
+            help="IP address of the remote server"
         )
         group_rem.add_argument(
             "--port", type=int, default=8080,
-            help="(Optional) Port of the remote server (default: 8080)"
+            help="Port of the remote server"
         )
 
         group_out = parser.add_argument_group("Output Control")
         group_out.add_argument(
             "--json", action="store_true",
-            help="(Optional) Output result as JSON for Promptfoo compatibility"
+            help="Output result as JSON for Promptfoo compatibility"
         )
 
         args = parser.parse_args()
