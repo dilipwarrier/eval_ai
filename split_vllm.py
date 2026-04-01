@@ -319,7 +319,7 @@ def call_api(
         tokenizer = get_tokenizer(model_name)
         messages = [{"role": "user", "content": prompt}]
         formatted_prompt = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
+            messages, tokenize=False, add_generation_prompt=True)
 
         sampling_params = SamplingParams(max_tokens=2048, temperature=0.7)
         request_id = "bench_request"
