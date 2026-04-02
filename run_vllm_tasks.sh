@@ -12,7 +12,7 @@
 # ==========================================
 
 # Ensure the virtual environment is deactivated on script exit
-trap "deactivate" EXIT
+trap "[[ -n \"$VIRTUAL_ENV\" ]] && deactivate" EXIT
 
 # Default number of iterations for tasks
 NUM_ITERATIONS=1
@@ -20,14 +20,23 @@ NUM_ITERATIONS=1
 # Default processor type
 PROCESSOR_TYPE="Nvidia"
 
+# Default max model length
+# Allows 1000 tokens of input, 1000 tokens of output plus some buffer
+MAX_MODEL_LEN=3000
+
+# Default model name
+MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
+
 # Function to display help message
 show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  -n, --num_iter NUM       Number of iterations for tasks (default: 1)"
-    echo "  -p, --processor_type TYPE Processor type: Intel or Nvidia (default: Nvidia)"
-    echo "  -h, --help               Display this help message"
+    echo "  -n, --num_iter NUM         Number of iterations for tasks (default: 1)"
+    echo "  -p, --processor_type TYPE  Processor type: Intel or Nvidia (default: Nvidia)"
+    echo "  -m, --max-model-len LEN    Maximum model length for all split_vllm.py calls (default: 2048)"
+    echo "  -M, --model-name NAME      Model name for all split_vllm.py calls (default: unsloth/llama-3-8b-instruct-bnb-4bit)"
+    echo "  -h, --help                 Display this help message"
     exit 0
 }
 
@@ -36,12 +45,13 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         -n|--num_iter) NUM_ITERATIONS="$2"; shift ;;
         -p|--processor_type) PROCESSOR_TYPE="$(echo "$2" | tr '[:upper:]' '[:lower:]' | sed 's/.*/\u&/')" ; shift ;;
+        -m|--max-model-len) MAX_MODEL_LEN="$2"; shift ;;
+        -M|--model-name) MODEL_NAME="$2"; shift ;;
         -h|--help) show_help ;;
         *) echo "Unknown parameter passed: $1"; show_help ;;
     esac
     shift
 done
-MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
 
 # Directory Setup
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -83,6 +93,13 @@ ENGLISH_URL="https://www.gutenberg.org/files/1661/1661-0.txt"
 echo "Saving machine configuration..." | tee -a "$top_level_stdout_log"
 {
     echo "=== System Timestamp: $(date) ==="
+    echo ""
+    echo "--- Run Parameters ---"
+    echo "NUM_ITERATIONS: $NUM_ITERATIONS"
+    echo "PROCESSOR_TYPE: $PROCESSOR_TYPE"
+    echo "MAX_MODEL_LEN: $MAX_MODEL_LEN"
+    echo "MODEL_NAME: $MODEL_NAME"
+    echo "RESULTS_DIR: $RESULTS_DIR"
     echo ""
     echo "--- CPU Information ---"
     lscpu | grep -E "Model name" | column -t -s ":"
@@ -153,7 +170,7 @@ if [ "$PROCESSOR_TYPE" == "Nvidia" ]; then
 
 elif [ "$PROCESSOR_TYPE" == "Intel" ]; then
     echo "Setting up environment for Intel XPU..." | tee -a "$top_level_stdout_log"
-    source /home/lyptusadmin/vllm-xpu-env/bin/activate
+    source /home/lyptusadmin/vllm-xpu-env/bin/activate >> "$top_level_stdout_log" 2>> "$top_level_stderr_log"
 fi
 
 # ==========================================
@@ -162,6 +179,7 @@ fi
 echo -e "\nExecuting Task 0: Quick Test (Model: $MODEL_NAME)"
 python split_vllm.py \
     --model "$MODEL_NAME" \
+    --max-model-len "$MAX_MODEL_LEN" \
     --prompt "Write a 100-word essay on the universe" \
     --enforce-eager \
     > "$quick_test_stdout_log" 2> "$quick_test_stderr_log"
@@ -217,6 +235,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     task1_start=$SECONDS
     python split_vllm.py \
         --model "$MODEL_NAME" \
+        --max-model-len "$MAX_MODEL_LEN" \
         --prompt "Act as a professional French-to-English translator. Translate the following text: " \
         --prompt-file "$translation_input_run" \
         --save-output "$translation_output_run" \
@@ -236,6 +255,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     task2_start=$SECONDS
     python split_vllm.py \
         --model "$MODEL_NAME" \
+        --max-model-len "$MAX_MODEL_LEN" \
         --prompt "Summarize the following English text: " \
         --prompt-file "$summarization_input_run" \
         --save-output "$summarization_output_run" \
@@ -256,6 +276,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     task3_start=$SECONDS
     python split_vllm.py \
         --model "$MODEL_NAME" \
+        --max-model-len "$MAX_MODEL_LEN" \
         --prompt "$GENERATION_PROMPT" \
         --save-output "$generation_output_run" \
         --enforce-eager \

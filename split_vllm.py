@@ -200,8 +200,9 @@ def build_engine(model: str, **engine_kwargs) -> LLMEngine:
         The initialized LLMEngine.
     """
     engine_args = EngineArgs(
-        model=model, disable_log_stats=True, **engine_kwargs
-    )
+            model=model, disable_log_stats=True, **engine_kwargs
+        )
+
     return LLMEngine.from_engine_args(engine_args)
 
 
@@ -272,7 +273,7 @@ def run_phase(
 
 
 def call_api(
-    prompt: str, options: dict, context: dict # pylint: disable=unused-argument
+    prompt: str, options: dict, context: dict  # pylint: disable=unused-argument
 ) -> dict:
     """
     Interface for Promptfoo Python Provider. Non-persistent version.
@@ -301,6 +302,7 @@ def call_api(
                 file_obj.write(result["output"])
         return result
 
+    max_model_len = config.get('max_model_len', 2048)
     enforce_eager = config.get('enforce_eager', False)
     gpu_util = config.get('gpu_util', 0.9)
 
@@ -308,6 +310,7 @@ def call_api(
     init_start = perf_counter()
     vllm_engine = build_engine(
         model=model_name,
+        max_model_len=max_model_len,
         gpu_memory_utilization=gpu_util,
         enforce_eager=enforce_eager
     )
@@ -317,8 +320,7 @@ def call_api(
         tokenizer = get_tokenizer(model_name)
         messages = [{"role": "user", "content": prompt}]
         formatted_prompt = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+            messages, tokenize=False, add_generation_prompt=True)
 
         sampling_params = SamplingParams(max_tokens=2048, temperature=0.7)
         request_id = "bench_request"
@@ -433,7 +435,11 @@ class ProfilerCLI:
 
         group_eng = parser.add_argument_group("Engine Configuration")
         group_eng.add_argument(
-            "--model", type=str, default="Qwen/Qwen2.5-1.5B-Instruct",
+            "--max-model-len", type=int, default=2048,
+            help="Maximum model length for the LLM"
+        )
+        group_eng.add_argument(
+            "--model", type=str, default="unsloth/llama-3-8b-instruct-bnb-4bit",
             help="Path or HF repo ID of the model to load"
         )
         group_eng.add_argument(
@@ -446,9 +452,10 @@ class ProfilerCLI:
         )
 
         group_inf = parser.add_argument_group("Inference Options")
+        default_prompt = "Write a 1000 word essay on the Enlightenment movement"
         group_inf.add_argument(
             "--prompt", type=str,
-            default="Write a 1000 word essay on the Enlightenment movement",
+            default=default_prompt,
             help="Input text to process"
         )
         group_inf.add_argument(
