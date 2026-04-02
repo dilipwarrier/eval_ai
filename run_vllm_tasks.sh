@@ -32,10 +32,10 @@ show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  -n, --num_iter NUM         Number of iterations for tasks (default: 1)"
-    echo "  -p, --processor_type TYPE  Processor type: Intel or Nvidia (default: Nvidia)"
-    echo "  -m, --max-model-len LEN    Maximum model length for all split_vllm.py calls (default: 2048)"
-    echo "  -M, --model-name NAME      Model name for all split_vllm.py calls (default: unsloth/llama-3-8b-instruct-bnb-4bit)"
+    echo "  -n, --num_iter NUM         Number of iterations for tasks (default: $NUM_ITERATIONS)"
+    echo "  -p, --processor_type TYPE  Processor type: Intel or Nvidia (default: $PROCESSOR_TYPE)"
+    echo "  -m, --max-model-len LEN    Maximum model length for all split_vllm.py calls (default: $MAX_MODEL_LEN)"
+    echo "  -M, --model-name NAME      Model name for all split_vllm.py calls (default: $MODEL_NAME)"
     echo "  -h, --help                 Display this help message"
     exit 0
 }
