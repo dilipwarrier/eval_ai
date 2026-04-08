@@ -15,7 +15,7 @@
 trap "[[ -n \"$VIRTUAL_ENV\" ]] && deactivate" EXIT
 
 # Default number of iterations for tasks
-NUM_ITERATIONS=1
+NUM_ITERATIONS=5
 
 # Default processor type
 PROCESSOR_TYPE="Nvidia"
@@ -52,6 +52,10 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
+
+#MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
+MODEL_NAME="Qwen/Qwen2.5-3B-Instruct"
+#MODEL_NAME="RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8-dynamic"
 
 # Directory Setup
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -181,7 +185,7 @@ python split_vllm.py \
     --model "$MODEL_NAME" \
     --max-model-len "$MAX_MODEL_LEN" \
     --prompt "Write a 100-word essay on the universe" \
-    --enforce-eager \
+    #--enforce-eager \
     > "$quick_test_stdout_log" 2> "$quick_test_stderr_log"
 
 exit_code=$?
@@ -239,7 +243,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
         --prompt "Act as a professional French-to-English translator. Translate the following text: " \
         --prompt-file "$translation_input_run" \
         --save-output "$translation_output_run" \
-        --enforce-eager \
+        #--enforce-eager \
         > "$translation_stdout_run" 2> "$translation_stderr_run"
 
     exit_code=$?
@@ -259,7 +263,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
         --prompt "Summarize the following English text: " \
         --prompt-file "$summarization_input_run" \
         --save-output "$summarization_output_run" \
-        --enforce-eager \
+        #--enforce-eager \
         > "$summarization_stdout_run" 2> "$summarization_stderr_run"
 
     exit_code=$?
@@ -279,7 +283,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
         --max-model-len "$MAX_MODEL_LEN" \
         --prompt "$GENERATION_PROMPT" \
         --save-output "$generation_output_run" \
-        --enforce-eager \
+        #--enforce-eager \
         > "$generation_stdout_run" 2> "$generation_stderr_run"
 
     exit_code=$?

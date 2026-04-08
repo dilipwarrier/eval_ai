@@ -304,7 +304,7 @@ def call_api(
 
     max_model_len = config.get('max_model_len', 2048)
     enforce_eager = config.get('enforce_eager', False)
-    gpu_util = config.get('gpu_util', 0.9)
+    gpu_util = config.get('gpu_util', 0.7)
 
     # --- PHASE 1: INITIALIZATION ---
     init_start = perf_counter()
