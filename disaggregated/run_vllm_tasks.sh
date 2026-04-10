@@ -208,16 +208,6 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     # Copy the input files for this iteration
     cp "$translation_input" "$translation_input_run"
     cp "$summarization_input" "$summarization_input_run"
-
-    # --- ADD THIS CLEANUP BLOCK BEFORE EVERY TASK ---
-    echo "Sweeping network ports and clearing ghost processes..."
-    lsof -t -i:5600 | xargs -r kill -9
-    pkill -f "prefill_intel.py" 2>/dev/null || true
-    pkill -f "decode_nvidia.py" 2>/dev/null || true
-    pkill -f "launcher.py" 2>/dev/null || true
-    pkill -9 -f "vllm.engine" 2>/dev/null || true
-    sleep 3 # Give the OS a second to free the port
-
     # ==========================================
     # TASK 1: TRANSLATION
     # ==========================================
@@ -237,16 +227,6 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     task1_end=$SECONDS
     [ $exit_code -ne 0 ] && echo "ERROR: Task 1 failed (Code $exit_code)." || echo "-> Task 1 Complete."
     echo "-> Inference time: $((task1_end - task1_start)) seconds"
-
-
-    # --- ADD THIS CLEANUP BLOCK BEFORE EVERY TASK ---
-    echo "Sweeping network ports and clearing ghost processes..."
-    lsof -t -i:5600 | xargs -r kill -9
-    pkill -f "prefill_intel.py" 2>/dev/null || true
-    pkill -f "decode_nvidia.py" 2>/dev/null || true
-    pkill -f "launcher.py" 2>/dev/null || true
-    pkill -9 -f "vllm.engine" 2>/dev/null || true
-    sleep 3 # Give the OS a second to free the port
     # ==========================================
     # TASK 2: SUMMARIZATION
     # ==========================================
@@ -266,16 +246,6 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     task2_end=$SECONDS
     [ $exit_code -ne 0 ] && echo "ERROR: Task 2 failed (Code $exit_code)." || echo "-> Task 2 Complete."
     echo "-> Inference time: $((task2_end - task2_start)) seconds"
-
-
-    # --- ADD THIS CLEANUP BLOCK BEFORE EVERY TASK ---
-    echo "Sweeping network ports and clearing ghost processes..."
-    lsof -t -i:5600 | xargs -r kill -9
-    pkill -f "prefill_intel.py" 2>/dev/null || true
-    pkill -f "decode_nvidia.py" 2>/dev/null || true
-    pkill -f "launcher.py" 2>/dev/null || true
-    pkill -9 -f "vllm.engine" 2>/dev/null || true
-    sleep 3 # Give the OS a second to free the port
     # ==========================================
     # TASK 3: GENERATION
     # ==========================================
@@ -296,17 +266,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     [ $exit_code -ne 0 ] && echo "ERROR: Task 3 failed (Code $exit_code)." || echo "-> Task 3 Complete."
     echo "-> Inference time: $((task3_end - task3_start)) seconds"
     
-    # --- ADD THIS CLEANUP BLOCK BEFORE EVERY TASK ---
-    echo "Sweeping network ports and clearing ghost processes..."
-    lsof -t -i:5600 | xargs -r kill -9
-    pkill -f "prefill_intel.py" 2>/dev/null || true
-    pkill -f "decode_nvidia.py" 2>/dev/null || true
-    pkill -f "launcher.py" 2>/dev/null || true
-    pkill -9 -f "vllm.engine" 2>/dev/null || true
-    sleep 3 # Give the OS a second to free the port
-
 done
-
 # ==========================================
 # GENERATE REPORT
 # ==========================================
