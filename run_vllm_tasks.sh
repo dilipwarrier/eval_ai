@@ -15,14 +15,17 @@
 trap "[[ -n \"$VIRTUAL_ENV\" ]] && deactivate" EXIT
 
 # Default number of iterations for tasks
-NUM_ITERATIONS=5
+NUM_ITERATIONS=2
 
 # Default processor type
 PROCESSOR_TYPE="Nvidia"
 
 # Default max model length
 # Allows 1000 tokens of input, 1000 tokens of output plus some buffer
-MAX_MODEL_LEN=3000
+MAX_MODEL_LEN=8192
+
+#Default serving mode
+SERVING_MODE="agg"
 
 # Default model name
 MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
@@ -36,6 +39,8 @@ show_help() {
     echo "  -p, --processor_type TYPE  Processor type: Intel or Nvidia (default: $PROCESSOR_TYPE)"
     echo "  -m, --max-model-len LEN    Maximum model length for all split_vllm.py calls (default: $MAX_MODEL_LEN)"
     echo "  -M, --model-name NAME      Model name for all split_vllm.py calls (default: $MODEL_NAME)"
+    #echo "  -agg                       Run aggregated serving via split_vllm.py"
+    echo "  -disagg                    Run disaggregated serving via launcher.py"
     echo "  -h, --help                 Display this help message"
     exit 0
 }
@@ -47,14 +52,23 @@ while [[ "$#" -gt 0 ]]; do
         -p|--processor_type) PROCESSOR_TYPE="$(echo "$2" | tr '[:upper:]' '[:lower:]' | sed 's/.*/\u&/')" ; shift ;;
         -m|--max-model-len) MAX_MODEL_LEN="$2"; shift ;;
         -M|--model-name) MODEL_NAME="$2"; shift ;;
+	#-agg) SERVING_MODE="agg" ;;
+	-disagg) SERVING_MODE="disagg" ;;
         -h|--help) show_help ;;
         *) echo "Unknown parameter passed: $1"; show_help ;;
     esac
     shift
 done
 
+if [ "SERVING_MODE" == "agg" ]; then
+    PYTHON_SCRIPT="split_vllm.py"
+else
+    PYTHON_SCRIPT="dissag_split_vllm.py"
+    PROCESSOR_TYPE="Intel"
+fi
+
 #MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
-MODEL_NAME="Qwen/Qwen2.5-3B-Instruct"
+#MODEL_NAME="Qwen/Qwen2.5-3B-Instruct"
 #MODEL_NAME="RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8-dynamic"
 
 # Directory Setup
@@ -181,11 +195,11 @@ fi
 # TASK 0: QUICK TEST (PRE-LOAD MODEL)
 # ==========================================
 echo -e "\nExecuting Task 0: Quick Test (Model: $MODEL_NAME)"
-python split_vllm.py \
+python $PYTHON_SCRIPT \
     --model "$MODEL_NAME" \
     --max-model-len "$MAX_MODEL_LEN" \
     --prompt "Write a 100-word essay on the universe" \
-    #--enforce-eager \
+    --enforce-eager \
     > "$quick_test_stdout_log" 2> "$quick_test_stderr_log"
 
 exit_code=$?
@@ -237,13 +251,13 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     echo -e "\nExecuting Task 1: Translation"
 
     task1_start=$SECONDS
-    python split_vllm.py \
+    python $PYTHON_SCRIPT \
         --model "$MODEL_NAME" \
         --max-model-len "$MAX_MODEL_LEN" \
         --prompt "Act as a professional French-to-English translator. Translate the following text: " \
         --prompt-file "$translation_input_run" \
         --save-output "$translation_output_run" \
-        #--enforce-eager \
+        --enforce-eager \
         > "$translation_stdout_run" 2> "$translation_stderr_run"
 
     exit_code=$?
@@ -257,13 +271,13 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     echo -e "\nExecuting Task 2: Summarization"
 
     task2_start=$SECONDS
-    python split_vllm.py \
+    python $PYTHON_SCRIPT \
         --model "$MODEL_NAME" \
         --max-model-len "$MAX_MODEL_LEN" \
         --prompt "Summarize the following English text: " \
         --prompt-file "$summarization_input_run" \
         --save-output "$summarization_output_run" \
-        #--enforce-eager \
+        --enforce-eager \
         > "$summarization_stdout_run" 2> "$summarization_stderr_run"
 
     exit_code=$?
@@ -278,12 +292,12 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     GENERATION_PROMPT="System: You are a professional essay writer. User: Write a $num_words_for_generation word essay on the Enlightenment movement."
 
     task3_start=$SECONDS
-    python split_vllm.py \
+    python $PYTHON_SCRIPT \
         --model "$MODEL_NAME" \
         --max-model-len "$MAX_MODEL_LEN" \
         --prompt "$GENERATION_PROMPT" \
         --save-output "$generation_output_run" \
-        #--enforce-eager \
+        --enforce-eager \
         > "$generation_stdout_run" 2> "$generation_stderr_run"
 
     exit_code=$?
