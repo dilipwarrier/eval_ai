@@ -15,7 +15,7 @@
 trap "[[ -n \"$VIRTUAL_ENV\" ]] && deactivate" EXIT
 
 # Default number of iterations for tasks
-NUM_ITERATIONS=2
+NUM_ITERATIONS=1
 
 # Default processor type
 PROCESSOR_TYPE="Nvidia"
@@ -60,11 +60,11 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-if [ "SERVING_MODE" == "agg" ]; then
-    PYTHON_SCRIPT="split_vllm.py"
-else
+if [ "$SERVING_MODE" == "disagg" ]; then
     PYTHON_SCRIPT="dissag_split_vllm.py"
     PROCESSOR_TYPE="Intel"
+else
+    PYTHON_SCRIPT="split_vllm.py"
 fi
 
 #MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
@@ -97,9 +97,9 @@ generation_stdout="${RESULTS_DIR}/generation_stdout.log"
 generation_stderr="${RESULTS_DIR}/generation_stderr.log"
 
 # Task Settings
-num_words_for_translation=1000
-num_words_for_summarization=1000
-num_words_for_generation=500
+num_words_for_translation=8000
+num_words_for_summarization=8000
+num_words_for_generation=8000
 
 # URLs
 FRENCH_URL="https://www.gutenberg.org/cache/epub/11450/pg11450.txt"
