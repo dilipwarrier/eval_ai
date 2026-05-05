@@ -22,7 +22,10 @@ PROCESSOR_TYPE="Nvidia"
 
 # Default max model length
 # Allows 1000 tokens of input, 1000 tokens of output plus some buffer
-MAX_MODEL_LEN=3000
+MAX_MODEL_LEN=8192
+
+#Default serving mode
+SERVING_MODE="agg"
 
 # Default model name
 MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
@@ -36,6 +39,8 @@ show_help() {
     echo "  -p, --processor_type TYPE  Processor type: Intel or Nvidia (default: $PROCESSOR_TYPE)"
     echo "  -m, --max-model-len LEN    Maximum model length for all split_vllm.py calls (default: $MAX_MODEL_LEN)"
     echo "  -M, --model-name NAME      Model name for all split_vllm.py calls (default: $MODEL_NAME)"
+    #echo "  -agg                       Run aggregated serving via split_vllm.py"
+    echo "  -disagg                    Run disaggregated serving via launcher.py"
     echo "  -h, --help                 Display this help message"
     exit 0
 }
@@ -47,11 +52,24 @@ while [[ "$#" -gt 0 ]]; do
         -p|--processor_type) PROCESSOR_TYPE="$(echo "$2" | tr '[:upper:]' '[:lower:]' | sed 's/.*/\u&/')" ; shift ;;
         -m|--max-model-len) MAX_MODEL_LEN="$2"; shift ;;
         -M|--model-name) MODEL_NAME="$2"; shift ;;
+	#-agg) SERVING_MODE="agg" ;;
+	-disagg) SERVING_MODE="disagg" ;;
         -h|--help) show_help ;;
         *) echo "Unknown parameter passed: $1"; show_help ;;
     esac
     shift
 done
+
+if [ "$SERVING_MODE" == "disagg" ]; then
+    PYTHON_SCRIPT="dissag_split_vllm.py"
+    PROCESSOR_TYPE="Intel"
+else
+    PYTHON_SCRIPT="split_vllm.py"
+fi
+
+#MODEL_NAME="unsloth/llama-3-8b-instruct-bnb-4bit"
+#MODEL_NAME="Qwen/Qwen2.5-3B-Instruct"
+#MODEL_NAME="RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8-dynamic"
 
 # Directory Setup
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -79,9 +97,9 @@ generation_stdout="${RESULTS_DIR}/generation_stdout.log"
 generation_stderr="${RESULTS_DIR}/generation_stderr.log"
 
 # Task Settings
-num_words_for_translation=1000
-num_words_for_summarization=1000
-num_words_for_generation=500
+num_words_for_translation=8000
+num_words_for_summarization=8000
+num_words_for_generation=8000
 
 # URLs
 FRENCH_URL="https://www.gutenberg.org/cache/epub/11450/pg11450.txt"
@@ -177,7 +195,7 @@ fi
 # TASK 0: QUICK TEST (PRE-LOAD MODEL)
 # ==========================================
 echo -e "\nExecuting Task 0: Quick Test (Model: $MODEL_NAME)"
-python split_vllm.py \
+python $PYTHON_SCRIPT \
     --model "$MODEL_NAME" \
     --max-model-len "$MAX_MODEL_LEN" \
     --prompt "Write a 100-word essay on the universe" \
@@ -233,7 +251,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     echo -e "\nExecuting Task 1: Translation"
 
     task1_start=$SECONDS
-    python split_vllm.py \
+    python $PYTHON_SCRIPT \
         --model "$MODEL_NAME" \
         --max-model-len "$MAX_MODEL_LEN" \
         --prompt "Act as a professional French-to-English translator. Translate the following text: " \
@@ -253,7 +271,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     echo -e "\nExecuting Task 2: Summarization"
 
     task2_start=$SECONDS
-    python split_vllm.py \
+    python $PYTHON_SCRIPT \
         --model "$MODEL_NAME" \
         --max-model-len "$MAX_MODEL_LEN" \
         --prompt "Summarize the following English text: " \
@@ -274,7 +292,7 @@ for ((i=1; i<=NUM_ITERATIONS; i++)); do
     GENERATION_PROMPT="System: You are a professional essay writer. User: Write a $num_words_for_generation word essay on the Enlightenment movement."
 
     task3_start=$SECONDS
-    python split_vllm.py \
+    python $PYTHON_SCRIPT \
         --model "$MODEL_NAME" \
         --max-model-len "$MAX_MODEL_LEN" \
         --prompt "$GENERATION_PROMPT" \
